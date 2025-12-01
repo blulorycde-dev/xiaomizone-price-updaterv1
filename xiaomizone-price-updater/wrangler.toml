@@ -1,0 +1,9 @@
+name = "price-updater"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+workers_dev = true
+
+# API_VERSION se usa en el código pero, si no la defines,
+# toma "2024-10" por defecto desde env.js
+[vars]
+API_VERSION = "2024-10"
