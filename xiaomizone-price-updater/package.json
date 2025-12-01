@@ -1,5 +1,5 @@
 {
-  "name": "xiaomizone-price-updater",
+  "name": "xiaomizone-price-updaterv1",
   "version": "1.0.0",
   "private": true,
   "scripts": {
@@ -10,3 +10,4 @@
     "wrangler": "^3.90.0"
   }
 }
+
