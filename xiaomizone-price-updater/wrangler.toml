@@ -16,7 +16,7 @@ TOTAL_VARIANTS_HINT = "1000"
 CRON_MINUTES = "2"
 
 # Seguridad del panel
-ADMIN_PIN = "1234"
+ADMIN_PIN = "0527-6"
 
 [[kv_namespaces]]
 binding = "JOBS_KV"
@@ -25,3 +25,4 @@ id = "3252d7546eee4925a5dbee496d91c04b"   # KV: jobs price updater
 [[kv_namespaces]]
 binding = "LOG_KV"
 id = "1aa2052b4a54493dbdcc910bb9382d75"   # KV: price-updater-logs
+
