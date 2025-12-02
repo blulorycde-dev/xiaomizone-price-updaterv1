@@ -1,12 +1,10 @@
-// Worker: price-updater con panel /admin (tema claro),
-// modos update/reset, log y lista de productos
+ // Worker: price-updater con panel /admin (tema claro), modos update/reset, log, lista de productos y set-base-usd con actualización de precio
 
 const API_VERSION = "2024-10";
 const JOB_KEY = "price_job";
 const LOG_KEY = "price_log";
-
-const BATCH_LIMIT = 10;        // variantes por corrida del cron
-const REQ_THROTTLE_MS = 600;   // espera entre peticiones
+const BATCH_LIMIT = 10;       // variantes por corrida del cron
+const REQ_THROTTLE_MS = 600;  // espera entre peticiones
 const STATUS_TIMEZONE = "America/Asuncion";
 
 export default {
@@ -14,14 +12,15 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
-    // valida que haya dominio/token (lanza error si falta algo)
+    // valida que haya dominio/token
     getShop(env);
 
     if (req.method === "OPTIONS") {
-      return cors(new Response(null, { status: 204 }));
+      return cors(new Response(null));
     }
 
     // ---------- STATUS ----------
+
     if (path === "/status") {
       const job = await getJob(env);
       const body = job || { running: false, msg: "no job" };
@@ -29,6 +28,17 @@ export default {
       if (job?.running || typeof job?.processedVariants === "number") {
         const eta = computeETA(job);
         body.eta = eta;
+
+        // progreso aproximado
+        const total = parseInt(job?.totalVariantsHint || 0, 10) || 0;
+        const processed = parseInt(job?.processedVariants || 0, 10) || 0;
+        if (total > 0) {
+          body.progressPercent = Math.min(
+            100,
+            Math.round((processed / total) * 100)
+          );
+        }
+
         if (eta?.etaMinutes && Number.isFinite(eta.etaMinutes)) {
           const end = new Date(Date.now() + eta.etaMinutes * 60000);
           body.projectedEndLocal = end.toLocaleString("es-PY", {
@@ -41,6 +51,7 @@ export default {
     }
 
     // ---------- PANEL ADMIN (HTML) ----------
+
     if (path === "/admin") {
       const html = `
 <!DOCTYPE html>
@@ -91,7 +102,7 @@ export default {
       background: #fff;
       color: #222;
     }
-    input:focus {
+    input:focus, select:focus {
       outline: none;
       border-color: #ff6600;
       box-shadow: 0 0 0 1px rgba(255,102,0,0.25);
@@ -113,6 +124,10 @@ export default {
     }
     button:hover { background: #ff7f24; }
     button.secondary:hover { background:#d5d9e6; }
+    button[disabled] {
+      opacity: 0.5;
+      cursor: default;
+    }
     .row {
       display: flex;
       gap: 8px;
@@ -198,8 +213,14 @@ export default {
       align-items:center;
       gap:8px;
       margin-top:8px;
+      flex-wrap: wrap;
     }
-    .toolbar input { max-width:260px; }
+    .toolbar input {
+      max-width:260px;
+    }
+    .toolbar select {
+      max-width:200px;
+    }
     .toolbar button {
       margin-top:0;
       flex:0 0 auto;
@@ -216,6 +237,24 @@ export default {
       margin-top:8px;
       font-size:11px;
       color:#777;
+    }
+    .toggle-modified {
+      display:flex;
+      align-items:center;
+      gap:4px;
+      font-size:12px;
+      color:#555;
+    }
+    .toggle-modified input {
+      width:auto;
+      margin-top:0;
+    }
+    tr.row-modified {
+      background:#f0fff4;
+    }
+    input.base-input-row.modified {
+      border-color:#27ae60;
+      background:#f0fff4;
     }
   </style>
 </head>
@@ -263,7 +302,6 @@ export default {
             <input type="number" name="cron_min" required placeholder="Ej: 2">
           </div>
         </div>
-
         <button type="submit">Iniciar actualización de precios</button>
       </form>
     </div>
@@ -320,23 +358,50 @@ export default {
 
     <div class="section">
       <div class="section-header">
-        <h3>Lista de productos</h3>
+        <h3>Ver productos</h3>
         <span class="tag">Vista tipo editor masivo</span>
       </div>
       <p class="hint">
-        Biblioteca de productos con orden alfabético. Podés buscar por nombre o SKU y editar <b>Base USD</b> directo en la tabla.
-        La columna <b>Tasa estimada</b> es PYG / Base USD, útil para detectar valores raros.
+        Ver y editar productos en orden alfabético. Usá <b>"Ver productos"</b> para cargar la lista y <b>"Ver más productos"</b> para seguir cargando.
+        El buscador y el filtro de estado son opcionales.
       </p>
 
       <div class="toolbar">
-        <input type="text" id="base-q" placeholder="Buscar por nombre, SKU, etc.">
-        <button type="button" id="btn-load-base" class="secondary">Buscar / refrescar</button>
-        <button type="button" id="btn-clear-table" class="secondary">Limpiar tabla</button>
+        <input
+          type="text"
+          id="base-q"
+          placeholder="Buscar (opcional) por nombre, SKU, etc."
+        >
+        <select id="status-filter">
+          <option value="">Todos los estados</option>
+          <option value="active">Solo activos</option>
+          <option value="draft">Solo borradores</option>
+          <option value="archived">Solo archivados</option>
+        </select>
+        <button type="button" id="btn-load-base" class="secondary">
+          Ver productos
+        </button>
+        <button type="button" id="btn-clear-table" class="secondary">
+          Limpiar tabla
+        </button>
+        <label class="toggle-modified">
+          <input type="checkbox" id="toggle-modified">
+          Mostrar solo modificados
+        </label>
       </div>
 
       <div class="table-wrap" id="base-table"></div>
+
+      <!-- Botón de "Ver más productos" abajo de la tabla -->
+      <div style="display:flex; justify-content:flex-end; margin-top:8px;">
+        <button type="button" id="btn-more-base" class="secondary" disabled>
+          Ver más productos
+        </button>
+      </div>
+
       <div class="footer-note">
-        Tip: hacé varias búsquedas específicas (por marca, categoría, etc.) para revisar rápido sin CSV.
+        Tip: con el buscador vacío y filtro en "Todos", <b>Ver productos</b> recorre el catálogo completo página por página.
+        Podés combinar búsqueda + estado para revisar solo ciertas líneas o campañas.
       </div>
     </div>
 
@@ -347,22 +412,63 @@ export default {
         <button id="btn-cancel" type="button" class="secondary">Cancelar job</button>
       </div>
     </div>
+
+    <div class="section">
+      <div class="section-header">
+        <h3>Historial reciente de cambios</h3>
+        <span class="tag">Vista solo lectura</span>
+      </div>
+      <p class="hint">
+        Consultá las últimas modificaciones de <b>base_usd</b> y precios que registró el worker.
+      </p>
+
+      <div class="toolbar">
+        <select id="log-range">
+          <option value="24">Últimas 24 horas</option>
+          <option value="168">Últimos 7 días</option>
+          <option value="0">Todo el historial</option>
+        </select>
+        <button type="button" id="btn-load-log" class="secondary">
+          Ver historial
+        </button>
+      </div>
+
+      <div id="log-list" style="margin-top:8px;font-size:12px;"></div>
+    </div>
   </div>
 
   <script>
+    // Configuración fija que querés respetar siempre en el panel (solo visual)
+    const FIXED_RATE = 7200;      // tasa USD → PYG
+    const FIXED_MARGIN = 1.20;    // recargo 20%
+    const ROUND_STEP = 100;       // redondeo a 100 Gs
+
     const pinInput = document.getElementById("pin");
-
     const formUpdate = document.getElementById("form-update");
-    const formReset  = document.getElementById("form-reset");
-    const formBase   = document.getElementById("form-base");
-
+    const formReset = document.getElementById("form-reset");
+    const formBase = document.getElementById("form-base");
     const btnStatus = document.getElementById("btn-status");
     const btnCancel = document.getElementById("btn-cancel");
 
-    const baseQ         = document.getElementById("base-q");
-    const btnLoadBase   = document.getElementById("btn-load-base");
+    const baseQ = document.getElementById("base-q");
+    const statusFilter = document.getElementById("status-filter");
+    const btnLoadBase = document.getElementById("btn-load-base");
+    const btnMoreBase = document.getElementById("btn-more-base");
     const btnClearTable = document.getElementById("btn-clear-table");
-    const baseTableDiv  = document.getElementById("base-table");
+    const baseTableDiv = document.getElementById("base-table");
+    const toggleModified = document.getElementById("toggle-modified");
+
+    const logRange = document.getElementById("log-range");
+    const btnLoadLog = document.getElementById("btn-load-log");
+    const logList = document.getElementById("log-list");
+
+    // Prellenar formulario de actualización con regla fija
+    const rateInput = formUpdate.querySelector('input[name="rate"]');
+    const marginInput = formUpdate.querySelector('input[name="margin"]');
+    const roundInput = formUpdate.querySelector('input[name="round"]');
+    if (rateInput) rateInput.value = FIXED_RATE;
+    if (marginInput) marginInput.value = FIXED_MARGIN.toFixed(2);
+    if (roundInput) roundInput.value = ROUND_STEP;
 
     function getPinOrAlert() {
       const pin = pinInput.value.trim();
@@ -373,7 +479,13 @@ export default {
       return pin;
     }
 
-    // ---------- update precios ----------
+    function roundToClient(n, step) {
+      if (!step || step <= 1) return Math.round(n);
+      return Math.round(n / step) * step;
+    }
+
+    // --------- UPDATE ----------
+
     formUpdate.addEventListener("submit", async (e) => {
       e.preventDefault();
       const pin = getPinOrAlert();
@@ -395,7 +507,8 @@ export default {
       }
     });
 
-    // ---------- reset base_usd ----------
+    // --------- RESET ----------
+
     formReset.addEventListener("submit", async (e) => {
       e.preventDefault();
       const pin = getPinOrAlert();
@@ -403,7 +516,6 @@ export default {
 
       const form = new FormData(formReset);
       form.append("pin", pin);
-      // margin fijo 1.00, round 0 (no se usan para reset)
       form.append("margin", "1.00");
       form.append("round", "0");
       const params = new URLSearchParams(form);
@@ -419,7 +531,8 @@ export default {
       }
     });
 
-    // ---------- set base_usd manual (1 variante) ----------
+    // --------- SET BASE (1 variante manual) ----------
+
     formBase.addEventListener("submit", async (e) => {
       e.preventDefault();
       const pin = getPinOrAlert();
@@ -427,6 +540,7 @@ export default {
 
       const form = new FormData(formBase);
       form.append("pin", pin);
+      form.append("applyRate", "1");
       const params = new URLSearchParams(form);
       const url = "/set-base-usd?" + params.toString();
       try {
@@ -440,7 +554,8 @@ export default {
       }
     });
 
-    // ---------- status y cancel ----------
+    // --------- STATUS / CANCEL ----------
+
     btnStatus.addEventListener("click", async () => {
       try {
         const r = await fetch("/status");
@@ -465,20 +580,51 @@ export default {
       }
     });
 
-    // ---------- Lista de productos ----------
+    // --------- LISTA DE PRODUCTOS (paginada) ----------
+
+    let baseCursor = null;
+    let baseRows = [];
+
     btnClearTable.addEventListener("click", () => {
+      baseRows = [];
+      baseCursor = null;
       baseTableDiv.innerHTML = "";
+      btnMoreBase.disabled = true;
     });
 
-    btnLoadBase.addEventListener("click", async () => {
+    btnLoadBase.addEventListener("click", () => {
+      baseRows = [];
+      baseCursor = null;
+      loadBase(true);
+    });
+
+    btnMoreBase.addEventListener("click", () => {
+      if (!baseCursor) {
+        alert("No hay más productos para cargar.");
+        return;
+      }
+      loadBase(false);
+    });
+
+    if (toggleModified) {
+      toggleModified.addEventListener("change", () => {
+        applyModifiedFilter();
+      });
+    }
+
+    async function loadBase(reset) {
       const pin = getPinOrAlert();
       if (!pin) return;
+
       const q = (baseQ.value || "").trim();
+      const status = statusFilter.value || "";
 
       const params = new URLSearchParams();
       params.set("pin", pin);
+      params.set("limit", "50");
       if (q) params.set("q", q);
-      params.set("limit", "50"); // 50 productos por búsqueda
+      if (status) params.set("status", status);
+      if (!reset && baseCursor) params.set("cursor", baseCursor);
 
       try {
         const r = await fetch("/base-list?" + params.toString());
@@ -493,16 +639,25 @@ export default {
           alert(j.message || "Error en /base-list");
           return;
         }
-        renderBaseTable(j.rows || []);
+
+        const rows = j.rows || [];
+        if (reset) {
+          baseRows = rows;
+        } else {
+          baseRows = baseRows.concat(rows);
+        }
+        baseCursor = j.nextCursor || null;
+        renderBaseTable(baseRows);
+
+        btnMoreBase.disabled = !baseCursor;
       } catch (err) {
         alert("Error llamando a /base-list: " + err);
       }
-    });
+    }
 
     function renderBaseTable(rows) {
       if (!rows.length) {
-        baseTableDiv.innerHTML =
-          "<div style='padding:10px;font-size:13px;color:#777;'>No se encontraron variantes para esta búsqueda.</div>";
+        baseTableDiv.innerHTML = "<div style='padding:10px;font-size:13px;color:#777;'>No se encontraron variantes para esta búsqueda.</div>";
         return;
       }
 
@@ -510,7 +665,8 @@ export default {
       html += "<thead><tr>";
       html += "<th>Producto</th>";
       html += "<th>SKU</th>";
-      html += "<th class='numeric'>Precio PYG</th>";
+      html += "<th class='numeric'>Precio PYG actual</th>";
+      html += "<th class='numeric'>Precio 7.200 + 20%</th>";
       html += "<th class='numeric'>Base USD</th>";
       html += "<th class='numeric'>Tasa estimada</th>";
       html += "<th style='text-align:center;'>Acción</th>";
@@ -520,12 +676,14 @@ export default {
         const vid = row.variantId;
         const sku = row.sku || "";
         const title = row.productTitle || "";
-        const price = (row.pricePyg != null && !isNaN(row.pricePyg))
-          ? Math.round(row.pricePyg)
+        const price = (row.pricePyg != null && !isNaN(row.pricePyg)) ? Math.round(row.pricePyg) : null;
+        const base = (row.baseUsd != null && !isNaN(row.baseUsd)) ? Number(row.baseUsd) : null;
+
+        // Precio calculado con la regla fija 7200 + 20%
+        const priceCalc = (base != null)
+          ? roundToClient(base * FIXED_RATE * FIXED_MARGIN, ROUND_STEP)
           : null;
-        const base = (row.baseUsd != null && !isNaN(row.baseUsd))
-          ? Number(row.baseUsd)
-          : null;
+
         const tasa = (price != null && base != null && base > 0)
           ? (price / base)
           : null;
@@ -534,7 +692,7 @@ export default {
         const tasaStr = tasa != null ? tasa.toFixed(2) : "";
 
         const tasaClass =
-          tasa != null && (tasa < 5000 || tasa > 10000)
+          tasa != null && (tasa < 5000 || tasa > 15000)
             ? "badge badge-danger"
             : "badge";
 
@@ -542,21 +700,27 @@ export default {
         html += "<td>" + escapeHtml(title) +
                 "<br><small style='color:#999;'>Var ID: " + vid + "</small></td>";
         html += "<td>" + escapeHtml(sku) + "</td>";
-        html += "<td class='numeric'>" +
-                (price != null ? price.toLocaleString('es-PY') : "") +
-                "</td>";
+
+        // Precio PYG actual
+        html += "<td class='numeric'>" + (price != null ? price.toLocaleString('es-PY') : "") + "</td>";
+
+        // Precio calculado 7200 + 20%
+        html += "<td class='numeric'>" + (priceCalc != null ? priceCalc.toLocaleString('es-PY') : "") + "</td>";
+
+        // Base USD editable
         html += "<td class='numeric'>";
-        html += "<input type='number' step='0.01' " +
-                "style='width:100%;padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #cfd3dd;' " +
-                "value='" + baseStr + "' data-variant-id='" + vid + "' class='base-input-row'>";
+        html += "<input type='number' step='0.01' style='width:100%;padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #cfd3dd;' ";
+        html += "value='" + baseStr + "' data-variant-id='" + vid + "' data-original-base='" + baseStr + "' class='base-input-row'>";
         html += "</td>";
-        html += "<td class='numeric'>" +
-                (tasaStr ? "<span class='" + tasaClass + "'>" + tasaStr + "</span>" : "") +
-                "</td>";
+
+        // Tasa estimada
+        html += "<td class='numeric'>" + (tasaStr
+              ? "<span class='" + tasaClass + "'>" + tasaStr + "</span>"
+              : "") + "</td>";
+
+        // Botón Guardar
         html += "<td style='text-align:center;'>";
-        html += "<button type='button' class='secondary btn-save-row' " +
-                "data-variant-id='" + vid + "' " +
-                "style='font-size:12px;padding:4px 10px;margin-top:0;'>Guardar</button>";
+        html += "<button type='button' class='secondary btn-save-row' data-variant-id='" + vid + "' style='font-size:12px;padding:4px 10px;margin-top:0;'>Guardar</button>";
         html += "</td>";
         html += "</tr>";
       }
@@ -565,28 +729,21 @@ export default {
       baseTableDiv.innerHTML = html;
 
       const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
-      buttons.forEach((btn) => {
+      buttons.forEach(btn => {
         btn.addEventListener("click", async () => {
           const pin = getPinOrAlert();
           if (!pin) return;
           const vid = btn.getAttribute("data-variant-id");
-          const input = baseTableDiv.querySelector(
-            "input.base-input-row[data-variant-id='" + vid + "']"
-          );
-          if (!input) {
-            alert("No se encontró el input para esa fila");
-            return;
-          }
+          const input = baseTableDiv.querySelector("input.base-input-row[data-variant-id='" + vid + "']");
+          if (!input) { alert("No se encontró el input para esa fila"); return; }
           const val = input.value.trim();
-          if (!val) {
-            alert("Ingresá un Base USD válido");
-            return;
-          }
+          if (!val) { alert("Ingresá un Base USD válido"); return; }
 
           const params = new URLSearchParams();
           params.set("pin", pin);
           params.set("variantId", vid);
           params.set("baseUsd", val);
+          params.set("applyRate", "1"); // pedir que también actualice precio
 
           try {
             const r = await fetch("/set-base-usd?" + params.toString());
@@ -594,10 +751,54 @@ export default {
             let j;
             try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
             alert(j.message || JSON.stringify(j));
+
+            // Si el backend devolvió el nuevo precio, actualizamos la fila en vivo
+            if (j.ok && typeof j.newPricePYG === "number") {
+              const newPrice = j.newPricePYG;
+              const tr = btn.closest("tr");
+              if (tr) {
+                // columnas: 1=producto, 2=sku, 3=precio actual, 4=precio 7200+20%, 5=base, 6=tasa, 7=acción
+                const priceCell = tr.querySelector("td.numeric:nth-child(3)");
+                if (priceCell) {
+                  priceCell.textContent = newPrice.toLocaleString("es-PY");
+                }
+
+                // marcar fila como modificada
+                tr.classList.add("row-modified");
+                input.classList.add("modified");
+                tr.setAttribute("data-modified", "1");
+                input.setAttribute("data-original-base", val);
+
+                // Recalcular tasa estimada con el nuevo precio y base_usd
+                const baseNum = parseFloat(val.replace(",", "."));
+                if (baseNum && isFinite(baseNum) && baseNum > 0) {
+                  const tasa = newPrice / baseNum;
+                  const tasaCell = tr.querySelector("td.numeric:nth-child(6)");
+                  if (tasaCell) {
+                    const cls = (tasa < 5000 || tasa > 15000)
+                      ? "badge badge-danger"
+                      : "badge";
+                    tasaCell.innerHTML =
+                      "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
+                  }
+                }
+              }
+              applyModifiedFilter();
+            }
           } catch (err) {
             alert("Error guardando Base USD: " + err);
           }
         });
+      });
+    }
+
+    function applyModifiedFilter() {
+      if (!toggleModified || !baseTableDiv.querySelector("table")) return;
+      const onlyMod = toggleModified.checked;
+      const rows = baseTableDiv.querySelectorAll("tbody tr");
+      rows.forEach(tr => {
+        const isMod = tr.getAttribute("data-modified") === "1";
+        tr.style.display = (!onlyMod || isMod) ? "" : "none";
       });
     }
 
@@ -610,6 +811,111 @@ export default {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
     }
+
+    // --------- HISTORIAL DE CAMBIOS (LOG) ----------
+
+    if (btnLoadLog) {
+      btnLoadLog.addEventListener("click", async () => {
+        const pin = getPinOrAlert();
+        if (!pin) return;
+
+        const rangeVal = logRange ? parseInt(logRange.value || "0", 10) : 0;
+
+        const params = new URLSearchParams();
+        params.set("pin", pin);
+
+        try {
+          const r = await fetch("/log?" + params.toString());
+          const txt = await r.text();
+          let entries;
+          try {
+            entries = JSON.parse(txt);
+          } catch (_) {
+            alert("Respuesta no válida de /log");
+            console.log(txt);
+            return;
+          }
+
+          if (!Array.isArray(entries)) entries = [];
+
+          const now = Date.now();
+          let filtered = entries;
+
+          // rangeVal en horas: 24, 168, 0 (todo)
+          if (rangeVal > 0) {
+            const maxAgeMs = rangeVal * 60 * 60 * 1000;
+            filtered = entries.filter((e) => {
+              if (!e.iso) return false;
+              const t = Date.parse(e.iso);
+              if (!t || Number.isNaN(t)) return false;
+              return now - t <= maxAgeMs;
+            });
+          }
+
+          if (!filtered.length) {
+            logList.innerHTML =
+              "<div style='padding:6px;color:#777;'>No hay registros para el rango seleccionado.</div>";
+            return;
+          }
+
+          const sorted = filtered.slice().reverse();
+
+          let html = "<ul style='list-style:none;padding-left:0;margin:0;'>";
+          for (const entry of sorted) {
+            const product = entry.product || "(sin nombre)";
+            const baseUsd =
+              entry.baseUsd != null && !isNaN(entry.baseUsd)
+                ? Number(entry.baseUsd).toFixed(2)
+                : "";
+            const beforeP =
+              entry.price_before != null && !isNaN(entry.price_before)
+                ? Number(entry.price_before).toLocaleString("es-PY")
+                : "";
+            const afterP =
+              entry.price_after != null && !isNaN(entry.price_after)
+                ? Number(entry.price_after).toLocaleString("es-PY")
+                : "";
+            const status = entry.status || "";
+            const timeTxt = entry.time || "";
+
+            let line =
+              "<strong>" + escapeHtml(product) + "</strong>";
+
+            if (baseUsd) {
+              line += " — " + baseUsd + " USD";
+            }
+            if (afterP) {
+              line += " — precio: " + afterP + " Gs";
+            }
+            if (beforeP) {
+              line += " (antes: " + beforeP + " Gs)";
+            }
+            if (status) {
+              line +=
+                " — <span style='color:#555;'>" +
+                escapeHtml(status) +
+                "</span>";
+            }
+            if (timeTxt) {
+              line +=
+                "<br><span style='color:#999;font-size:11px;'>" +
+                escapeHtml(timeTxt) +
+                "</span>";
+            }
+
+            html +=
+              "<li style='padding:4px 0;border-bottom:1px solid #eee;'>" +
+              line +
+              "</li>";
+          }
+          html += "</ul>";
+
+          logList.innerHTML = html;
+        } catch (err) {
+          alert("Error cargando historial: " + err);
+        }
+      });
+    }
   </script>
 </body>
 </html>`;
@@ -619,15 +925,17 @@ export default {
     }
 
     // ---------- START protegido con PIN (modo update precios) ----------
+
     if (path === "/start" && (req.method === "POST" || req.method === "GET")) {
       const pinProvided =
-        url.searchParams.get("pin") || req.headers.get("X-Admin-Pin") || "";
+        url.searchParams.get("pin") ||
+        req.headers.get("X-Admin-Pin") ||
+        "";
       const validPin = env.ADMIN_PIN;
-
-      if (!validPin)
-        return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-      if (!pinProvided || pinProvided !== validPin)
+      if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+      if (!pinProvided || pinProvided !== validPin) {
         return cors(text("PIN inválido", 403));
+      }
 
       const existingJob = await getJob(env);
       if (existingJob?.running) {
@@ -644,17 +952,13 @@ export default {
         );
       }
 
-      const rate =
-        norm(url.searchParams.get("rate")) || norm(env.MANUAL_RATE);
+      const rate = norm(url.searchParams.get("rate")) || norm(env.MANUAL_RATE);
       const margin =
         norm(url.searchParams.get("margin")) ||
         norm(env.MARGIN_FACTOR) ||
         1.0;
-      const roundTo =
-        parseInt(
-          url.searchParams.get("round") || env.ROUND_TO || "0",
-          10
-        ) || 0;
+      const roundToVal =
+        parseInt(url.searchParams.get("round") || env.ROUND_TO || "0", 10) || 0;
       const totalVariantsHint =
         url.searchParams.get("total_variants") ||
         env.TOTAL_VARIANTS_HINT ||
@@ -662,10 +966,9 @@ export default {
       const cronMin =
         url.searchParams.get("cron_min") || env.CRON_MINUTES || null;
 
-      if (!rate || rate <= 0)
-        return cors(
-          text("Debe indicar ?rate= o configurar MANUAL_RATE", 400)
-        );
+      if (!rate || rate <= 0) {
+        return cors(text("Debe indicar ?rate= o configurar MANUAL_RATE", 400));
+      }
 
       const job = {
         mode: "update",
@@ -678,30 +981,35 @@ export default {
         seededVariants: 0,
         rate,
         margin,
-        roundTo,
+        roundTo: roundToVal,
         totalVariantsHint,
         cronMin,
         lastRunAt: null,
         lastMsg: "started (update)",
       };
+
       await saveJob(env, job);
       return cors(
-        json({ ok: true, message: "Job de actualización iniciado", job })
+        json({
+          ok: true,
+          message: "Job de actualización iniciado",
+          job,
+        })
       );
     }
 
     // ---------- RESET BASE_USD protegido con PIN (no cambia precios) ----------
-    if (
-      path === "/reset-base" &&
-      (req.method === "POST" || req.method === "GET")
-    ) {
+
+    if (path === "/reset-base" && (req.method === "POST" || req.method === "GET")) {
       const pinProvided =
-        url.searchParams.get("pin") || req.headers.get("X-Admin-Pin") || "";
+        url.searchParams.get("pin") ||
+        req.headers.get("X-Admin-Pin") ||
+        "";
       const validPin = env.ADMIN_PIN;
-      if (!validPin)
-        return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-      if (!pinProvided || pinProvided !== validPin)
+      if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+      if (!pinProvided || pinProvided !== validPin) {
         return cors(text("PIN inválido", 403));
+      }
 
       const existingJob = await getJob(env);
       if (existingJob?.running) {
@@ -718,8 +1026,7 @@ export default {
         );
       }
 
-      const rate =
-        norm(url.searchParams.get("rate")) || norm(env.MANUAL_RATE);
+      const rate = norm(url.searchParams.get("rate")) || norm(env.MANUAL_RATE);
       const totalVariantsHint =
         url.searchParams.get("total_variants") ||
         env.TOTAL_VARIANTS_HINT ||
@@ -727,10 +1034,9 @@ export default {
       const cronMin =
         url.searchParams.get("cron_min") || env.CRON_MINUTES || null;
 
-      if (!rate || rate <= 0)
-        return cors(
-          text("Debe indicar ?rate= o configurar MANUAL_RATE", 400)
-        );
+      if (!rate || rate <= 0) {
+        return cors(text("Debe indicar ?rate= o configurar MANUAL_RATE", 400));
+      }
 
       const job = {
         mode: "reset_base",
@@ -749,131 +1055,185 @@ export default {
         lastRunAt: null,
         lastMsg: "started (reset_base)",
       };
+
       await saveJob(env, job);
       return cors(
-        json({ ok: true, message: "Job de reset base_usd iniciado", job })
+        json({
+          ok: true,
+          message: "Job de reset base_usd iniciado",
+          job,
+        })
       );
     }
 
-    // ---------- SET BASE_USD manual (1 variante) ----------
-    if (
-      path === "/set-base-usd" &&
-      (req.method === "POST" || req.method === "GET")
-    ) {
+    // ---------- SET BASE_USD manual (1 variante) + actualizar precio ----------
+
+    if (path === "/set-base-usd" && (req.method === "POST" || req.method === "GET")) {
       const pinProvided =
-        url.searchParams.get("pin") || req.headers.get("X-Admin-Pin") || "";
+        url.searchParams.get("pin") ||
+        req.headers.get("X-Admin-Pin") ||
+        "";
       const validPin = env.ADMIN_PIN;
-      if (!validPin)
-        return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-      if (!pinProvided || pinProvided !== validPin)
+      if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+      if (!pinProvided || pinProvided !== validPin) {
         return cors(text("PIN inválido", 403));
+      }
 
       const variantId = url.searchParams.get("variantId");
       const baseUsdRaw = url.searchParams.get("baseUsd");
       const baseUsd = norm(baseUsdRaw);
+      const applyRate = url.searchParams.get("applyRate") === "1";
 
       if (!variantId) return cors(text("Falta variantId", 400));
-      if (!baseUsd || baseUsd <= 0)
+      if (!baseUsd || baseUsd <= 0) {
         return cors(text("Base USD inválido", 400));
+      }
 
       const shop = getShop(env);
-      const ok = await upsertBaseUSD_GQL(shop, variantId, baseUsd);
-      if (ok) {
+      const okBase = await upsertBaseUSD_GQL(shop, variantId, baseUsd);
+
+      let newPricePYG = null;
+
+      if (okBase && applyRate) {
+        const rateEnv = norm(env.MANUAL_RATE);
+        const marginEnv = norm(env.MARGIN_FACTOR);
+        const margin = Number.isFinite(marginEnv) && marginEnv > 0 ? marginEnv : 1.0;
+        const roundToVal = parseInt(env.ROUND_TO || "0", 10) || 0;
+
+        if (rateEnv && rateEnv > 0) {
+          let calc = baseUsd * rateEnv * margin;
+          calc = roundTo(calc, roundToVal);
+          const okPrice = await updateVariantPrice(shop, variantId, calc);
+          if (okPrice) {
+            newPricePYG = calc;
+          }
+        }
+      }
+
+      if (okBase) {
         await addLog(env, {
           product: "(manual)",
           variantId,
           price_before: null,
-          price_after: null,
-          status: "base_usd_manual_set",
+          price_after: newPricePYG,
+          status: applyRate && newPricePYG != null
+            ? "base_usd_manual_set+price"
+            : "base_usd_manual_set",
           baseUsd,
-          time: new Date().toLocaleString("es-PY", {
-            timeZone: STATUS_TIMEZONE,
-          }),
         });
+
         return cors(
           json({
             ok: true,
-            message: "Base USD guardado para la variante " + variantId,
+            message:
+              "Base USD guardado para la variante " +
+              variantId +
+              (applyRate && newPricePYG != null
+                ? " y precio actualizado"
+                : ""),
+            baseUsd,
+            newPricePYG,
           })
         );
       } else {
         return cors(
-          json({ ok: false, message: "Error al guardar Base USD" }, 500)
+          json(
+            {
+              ok: false,
+              message: "Error al guardar Base USD",
+            },
+            500
+          )
         );
       }
     }
 
     // ---------- CANCEL protegido con PIN ----------
-    if (
-      path === "/cancel" &&
-      (req.method === "POST" || req.method === "GET")
-    ) {
+
+    if (path === "/cancel" && (req.method === "POST" || req.method === "GET")) {
       const pinProvided =
-        url.searchParams.get("pin") || req.headers.get("X-Admin-Pin") || "";
+        url.searchParams.get("pin") ||
+        req.headers.get("X-Admin-Pin") ||
+        "";
       const validPin = env.ADMIN_PIN;
-      if (!validPin)
-        return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-      if (!pinProvided || pinProvided !== validPin)
+      if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+      if (!pinProvided || pinProvided !== validPin) {
         return cors(text("PIN inválido", 403));
+      }
 
       await env.JOBS_KV.delete(JOB_KEY);
       return cors(json({ ok: true, message: "Job cancelado" }));
     }
 
     // ---------- LOG: ver historial completo ----------
+
     if (path === "/log") {
       const pinProvided = url.searchParams.get("pin") || "";
       const validPin = env.ADMIN_PIN;
-      if (!validPin)
-        return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-      if (!pinProvided || pinProvided !== validPin)
+      if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+      if (!pinProvided || pinProvided !== validPin) {
         return cors(text("PIN inválido", 403));
+      }
 
       const raw = await env.LOG_KV.get(LOG_KEY);
       return cors(json(raw ? JSON.parse(raw) : []));
     }
 
     // ---------- LOG: limpiar ----------
+
     if (path === "/log/clear") {
       const pinProvided = url.searchParams.get("pin") || "";
       const validPin = env.ADMIN_PIN;
-      if (!validPin)
-        return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-      if (!pinProvided || pinProvided !== validPin)
+      if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+      if (!pinProvided || pinProvided !== validPin) {
         return cors(text("PIN inválido", 403));
+      }
 
       await env.LOG_KV.delete(LOG_KEY);
       return cors(json({ ok: true, message: "Log limpiado" }));
     }
 
-    // ---------- BASE-LIST: lista tipo “Lista de productos” ----------
+    // ---------- BASE-LIST: lista tipo "Lista de productos" ----------
+
     if (path === "/base-list" && req.method === "GET") {
       const pinProvided = url.searchParams.get("pin") || "";
       const validPin = env.ADMIN_PIN;
-      if (!validPin)
-        return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-      if (!pinProvided || pinProvided !== validPin)
+      if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+      if (!pinProvided || pinProvided !== validPin) {
         return cors(text("PIN inválido", 403));
+      }
 
-      const searchQ = (url.searchParams.get("q") || "").trim() || null;
+      const rawSearch = (url.searchParams.get("q") || "").trim();
+      const status = (url.searchParams.get("status") || "").trim(); // "", "active", "draft", "archived"
       const pageSize =
         parseInt(url.searchParams.get("limit") || "50", 10) || 50;
+      const cursor = url.searchParams.get("cursor") || null;
+
+      const parts = [];
+      if (rawSearch) parts.push(rawSearch);
+      if (status === "active") parts.push("status:active");
+      else if (status === "draft") parts.push("status:draft");
+      else if (status === "archived") parts.push("status:archived");
+
+      const finalQuery = parts.length ? parts.join(" AND ") : null;
 
       const shop = getShop(env);
       const page = await fetchBaseListPage(shop, {
-        query: searchQ,
+        query: finalQuery,
         pageSize,
+        cursor,
       });
 
       return cors(
         json({
           ok: true,
           rows: page.rows,
+          nextCursor: page.nextCursor,
         })
       );
     }
 
-    // Mensaje por defecto
+    // fallback
     return cors(
       text(
         "Usos: /admin, /start, /reset-base, /set-base-usd, /status, /cancel, /log, /log/clear, /base-list"
@@ -885,6 +1245,7 @@ export default {
     ctx.waitUntil(runBatch(env));
   },
 };
+
 
 // ============ PROCESAMIENTO POR LOTES ============
 
@@ -900,12 +1261,12 @@ async function runBatch(env) {
     const { products, nextPageInfo } = await fetchProducts(shop, {
       pageSize,
       pageInfo: job.pageInfo,
-      onlyActive: true,
+      onlyActive: true, // el job solo toca productos activos
     });
 
     if (!products.length) {
       job.running = false;
-      job.lastMsg = "Completado (fin de paginación)";
+      job.lastMsg = "Completado (fin de paginacion)";
       job.lastRunAt = new Date().toISOString();
       await saveJob(env, job);
       return;
@@ -915,7 +1276,7 @@ async function runBatch(env) {
 
     for (const p of products) {
       job.processedProducts++;
-      for (const v of p.variants || []) {
+      for (const v of (p.variants || [])) {
         if (variantsDone >= BATCH_LIMIT) break;
 
         const variantId = v.id;
@@ -927,17 +1288,12 @@ async function runBatch(env) {
 
         job.processedVariants++;
 
-        // MODO RESET_BASE: recalcular y sobreescribir base_usd sin tocar precio
         if (mode === "reset_base") {
-          const baseCalculated =
-            Math.round((pricePYG / job.rate) * 100) / 100;
+          const baseCalculated = Math.round((pricePYG / job.rate) * 100) / 100;
           let status = "skipped";
+
           if (Number.isFinite(baseCalculated) && baseCalculated > 0) {
-            const ok = await upsertBaseUSD_GQL(
-              shop,
-              variantId,
-              baseCalculated
-            );
+            const ok = await upsertBaseUSD_GQL(shop, variantId, baseCalculated);
             if (ok) {
               job.seededVariants++;
               status = "base_usd_reset";
@@ -950,9 +1306,6 @@ async function runBatch(env) {
             price_before: Math.round(pricePYG),
             price_after: Math.round(pricePYG),
             status,
-            time: new Date().toLocaleString("es-PY", {
-              timeZone: STATUS_TIMEZONE,
-            }),
           });
 
           variantsDone++;
@@ -961,7 +1314,7 @@ async function runBatch(env) {
           continue;
         }
 
-        // MODO UPDATE PRECIOS (normal)
+        // modo update normal
         const { baseUsd, seeded } = await getOrSeedBaseUSD(
           shop,
           variantId,
@@ -994,9 +1347,6 @@ async function runBatch(env) {
           price_before: Math.round(pricePYG),
           price_after: Math.round(newPyg),
           status,
-          time: new Date().toLocaleString("es-PY", {
-            timeZone: STATUS_TIMEZONE,
-          }),
         });
 
         variantsDone++;
@@ -1009,16 +1359,18 @@ async function runBatch(env) {
     job.pageInfo = nextPageInfo || null;
     job.lastRunAt = new Date().toISOString();
     job.lastMsg = !nextPageInfo
-      ? "Completado (fin de paginación)"
-      : `Procesados: ${variantsDone}`;
-    if (!nextPageInfo && variantsDone < BATCH_LIMIT) job.running = false;
+      ? "Completado (fin de paginacion)"
+      : "Procesados: " + variantsDone;
+    if (!nextPageInfo && variantsDone < BATCH_LIMIT) {
+      job.running = false;
+    }
 
     await saveJob(env, job);
   } catch (e) {
-    if (String(e.message || "").includes("GET products → 400")) {
+    if (String(e.message || "").includes("GET products -> 400")) {
       job.pageInfo = null;
       job.running = false;
-      job.lastMsg = "Completado (fin de paginación)";
+      job.lastMsg = "Completado (fin de paginacion)";
     } else {
       job.lastMsg = "ERROR: " + (e?.message || String(e));
     }
@@ -1027,7 +1379,148 @@ async function runBatch(env) {
   }
 }
 
-// ============ base_usd: lectura y siembra segura (modo update) ============
+
+// ============ Shopify: listado de productos (REST para el job) ============
+
+function extractPageInfo(linkHeader) {
+  if (!linkHeader) return null;
+  const match = linkHeader.match(/<[^>]*[?&]page_info=([^&>]*)>; rel="next"/i);
+  return match ? match[1] : null;
+}
+
+async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive = true }) {
+  const { domain, token } = shop;
+  const baseUrl = `https://${domain}/admin/api/${API_VERSION}/products.json`;
+
+  const params = new URLSearchParams();
+  params.set("limit", String(pageSize));
+  if (pageInfo) params.set("page_info", pageInfo);
+  if (onlyActive && !pageInfo) params.set("status", "active");
+  params.set("order", "title asc"); // orden alfabético
+
+  const url = `${baseUrl}?${params.toString()}`;
+
+  const r = await fetch(url, {
+    method: "GET",
+    headers: {
+      "X-Shopify-Access-Token": token,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!r.ok) {
+    if (r.status === 400 && pageInfo) {
+      return { products: [], nextPageInfo: null };
+    }
+    throw new Error("GET products -> " + r.status);
+  }
+
+  const data = await r.json();
+  const link = r.headers.get("Link") || "";
+  const nextPageInfo = extractPageInfo(link);
+
+  return {
+    products: (data && data.products) ? data.products : [],
+    nextPageInfo,
+  };
+}
+
+
+// ============ BASE-LIST: lista tipo "Lista de productos" (GraphQL + cursor) ============
+
+async function fetchBaseListPage(shop, { query, pageSize, cursor }) {
+  const { domain, token } = shop;
+  const endpoint = `https://${domain}/admin/api/${API_VERSION}/graphql.json`;
+
+  const gql = `
+    query productVariantBaseList($first: Int!, $query: String, $after: String) {
+      products(first: $first, query: $query, sortKey: TITLE, after: $after) {
+        edges {
+          cursor
+          node {
+            id
+            title
+            variants(first: 50) {
+              edges {
+                node {
+                  id
+                  sku
+                  price
+                  metafield(namespace: "pricing", key: "base_usd") {
+                    value
+                  }
+                }
+              }
+            }
+          }
+        }
+        pageInfo {
+          hasNextPage
+          endCursor
+        }
+      }
+    }
+  `;
+
+  const variables = {
+    first: pageSize,
+    query: query || null,
+    after: cursor || null,
+  };
+
+  const r = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "X-Shopify-Access-Token": token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query: gql, variables }),
+  });
+
+  if (!r.ok) {
+    throw new Error("GraphQL base-list -> " + r.status);
+  }
+
+  const data = await r.json();
+  const productsNode = data?.data?.products;
+  const edges = productsNode?.edges || [];
+  const pageInfo = productsNode?.pageInfo || {};
+  const rows = [];
+
+  for (const e of edges) {
+    const pNode = e.node;
+    const title = pNode?.title || "Sin titulo";
+    const variantsEdges = pNode?.variants?.edges || [];
+
+    for (const ve of variantsEdges) {
+      const vNode = ve.node;
+      if (!vNode) continue;
+
+      const gid = vNode.id || "";
+      const variantId = gid.split("/").pop();
+      const sku = vNode.sku || "";
+      const price = vNode.price != null ? Number(vNode.price) : null;
+      const mf = vNode.metafield;
+      const baseUsdVal = mf?.value != null ? Number(mf.value) : null;
+
+      rows.push({
+        productTitle: title,
+        variantId,
+        sku,
+        pricePyg: price,
+        baseUsd: baseUsdVal,
+      });
+    }
+  }
+
+  const nextCursor =
+    pageInfo && pageInfo.hasNextPage ? pageInfo.endCursor || null : null;
+
+  return { rows, nextCursor };
+}
+
+
+// ============ base_usd: lectura y siembra segura (para modo update) ============
 
 async function getOrSeedBaseUSD(shop, variantId, currentPricePyg, rate) {
   const baseFromMeta = await readBaseUSD_GQL(shop, variantId);
@@ -1040,17 +1533,12 @@ async function getOrSeedBaseUSD(shop, variantId, currentPricePyg, rate) {
     return { baseUsd: null, seeded: false };
   }
 
-  const baseCalculated =
-    Math.round((currentPricePyg / rate) * 100) / 100;
+  const baseCalculated = Math.round((currentPricePyg / rate) * 100) / 100;
   if (!Number.isFinite(baseCalculated) || baseCalculated <= 0) {
     return { baseUsd: null, seeded: false };
   }
 
-  const seededOk = await upsertBaseUSD_GQL(
-    shop,
-    variantId,
-    baseCalculated
-  );
+  const seededOk = await upsertBaseUSD_GQL(shop, variantId, baseCalculated);
   return {
     baseUsd: seededOk ? baseCalculated : null,
     seeded: !!seededOk,
@@ -1064,7 +1552,6 @@ async function readBaseUSD_GQL(shop, variantId) {
   const query = `
     query variantBaseUsd($id: ID!) {
       productVariant(id: $id) {
-        id
         metafield(namespace: "pricing", key: "base_usd") {
           value
         }
@@ -1094,8 +1581,6 @@ async function readBaseUSD_GQL(shop, variantId) {
   const num = parseFloat(val);
   return Number.isFinite(num) ? num : null;
 }
-
-// ============ GraphQL Upsert (1 request por variante) ============
 
 async function upsertBaseUSD_GQL(shop, variantId, baseUSD) {
   const { domain, token } = shop;
@@ -1137,11 +1622,10 @@ async function upsertBaseUSD_GQL(shop, variantId, baseUSD) {
   return !errs || errs.length === 0;
 }
 
-// ============ Actualización de precio (REST) ============
-
 async function updateVariantPrice(shop, variantId, pyg) {
   const { domain, token } = shop;
   const url = `https://${domain}/admin/api/${API_VERSION}/variants/${variantId}.json`;
+
   const r = await fetch(url, {
     method: "PUT",
     headers: {
@@ -1149,140 +1633,27 @@ async function updateVariantPrice(shop, variantId, pyg) {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      variant: { id: variantId, price: Math.round(pyg) },
+      variant: {
+        id: variantId,
+        price: Math.round(pyg),
+      },
     }),
   });
+
   return r.ok;
 }
 
-// ============ Helpers Shopify ============
+
+// ============ Helpers Shopify / KV / utils ============
 
 function getShop(env) {
   const domain = env.SHOPIFY_STORE_DOMAIN;
   const token = env.SHOPIFY_ADMIN_TOKEN;
-  if (!domain || !token)
+  if (!domain || !token) {
     throw new Error("Falta SHOPIFY_STORE_DOMAIN o SHOPIFY_ADMIN_TOKEN");
+  }
   return { domain, token };
 }
-
-// PATCH 400-safe paginación REST
-async function fetchProducts(shop, { pageSize, pageInfo, onlyActive }) {
-  const { domain, token } = shop;
-
-  const qs = new URLSearchParams();
-  qs.set("limit", String(pageSize));
-
-  if (pageInfo) {
-    qs.set("page_info", pageInfo);
-  } else {
-    if (onlyActive) qs.set("status", "active");
-    qs.set("fields", "id,title,variants");
-  }
-
-  const url = `https://${domain}/admin/api/${API_VERSION}/products.json?${qs.toString()}`;
-
-  const r = await fetch(url, {
-    headers: {
-      "X-Shopify-Access-Token": token,
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!r.ok) {
-    if (r.status === 400 && pageInfo) {
-      return { products: [], nextPageInfo: null };
-    }
-    throw new Error(`GET products → ${r.status}`);
-  }
-
-  const data = await r.json();
-  const link = r.headers.get("Link") || "";
-  const nextPageInfo = extractPageInfo(link);
-
-  return { products: data?.products || [], nextPageInfo };
-}
-
-// ============ Listado de productos (para Lista de productos) ============
-
-async function fetchBaseListPage(shop, { query, pageSize }) {
-  const { domain, token } = shop;
-  const endpoint = `https://${domain}/admin/api/${API_VERSION}/graphql.json`;
-
-  const gql = `
-    query productVariantBaseList($first: Int!, $query: String) {
-      products(first: $first, query: $query, sortKey: TITLE) {
-        edges {
-          node {
-            id
-            title
-            variants(first: 20) {
-              edges {
-                node {
-                  id
-                  sku
-                  price
-                  metafield(namespace: "pricing", key: "base_usd") {
-                    value
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  `;
-
-  const variables = {
-    first: pageSize,
-    query: query || null,
-  };
-
-  const r = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "X-Shopify-Access-Token": token,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query: gql, variables }),
-  });
-
-  if (!r.ok) throw new Error(`GraphQL base-list → ${r.status}`);
-
-  const data = await r.json();
-  const edges = data?.data?.products?.edges || [];
-
-  const rows = [];
-
-  for (const e of edges) {
-    const pNode = e.node;
-    const title = pNode?.title || "Sin título";
-    const variantsEdges = pNode?.variants?.edges || [];
-    for (const ve of variantsEdges) {
-      const vNode = ve.node;
-      if (!vNode) continue;
-      const gid = vNode.id || "";
-      const variantId = gid.split("/").pop(); // ID numérico para REST
-      const sku = vNode.sku || "";
-      const price = vNode.price != null ? Number(vNode.price) : null;
-      const mf = vNode.metafield;
-      const baseUsdVal =
-        mf?.value != null ? Number(mf.value) : null;
-
-      rows.push({
-        productTitle: title,
-        variantId,
-        sku,
-        pricePyg: price,
-        baseUsd: baseUsdVal,
-      });
-    }
-  }
-
-  return { rows };
-}
-
-// ============ KV, ETA y LOG ============
 
 async function getJob(env) {
   const raw = await env.JOBS_KV.get(JOB_KEY);
@@ -1315,35 +1686,27 @@ async function addLog(env, entry) {
   const raw = await env.LOG_KV.get(LOG_KEY);
   let arr = [];
   if (raw) {
-    try {
-      arr = JSON.parse(raw);
-    } catch (e) {
-      arr = [];
-    }
+    try { arr = JSON.parse(raw); } catch (e) { arr = []; }
   }
+
+  if (!entry.time) {
+    entry.time = new Date().toLocaleString("es-PY", {
+      timeZone: STATUS_TIMEZONE,
+    });
+  }
+  if (!entry.iso) {
+    entry.iso = new Date().toISOString();
+  }
+
   arr.push(entry);
-
   if (arr.length > 2000) arr.shift();
-
   await env.LOG_KV.put(LOG_KEY, JSON.stringify(arr));
-}
-
-// ============ Utilidades ============
-
-function extractPageInfo(linkHeader) {
-  const m = /<[^>]*page_info=([^&>]+)[^>]*>;\s*rel="next"/i.exec(
-    linkHeader || ""
-  );
-  return m ? m[1] : null;
 }
 
 function cors(res) {
   res.headers.set("Access-Control-Allow-Origin", "*");
   res.headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.headers.set(
-    "Access-Control-Allow-Headers",
-    "Content-Type, Authorization"
-  );
+  res.headers.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Admin-Pin");
   return res;
 }
 
@@ -1364,16 +1727,12 @@ function text(s, status = 200) {
 function norm(s) {
   const t = String(s || "").trim();
   if (!t) return NaN;
-
-  // 1.234.567,89
   if (/^\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) {
     return parseFloat(t.replace(/\./g, "").replace(",", "."));
   }
-  // 1,234,567.89
   if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(t)) {
     return parseFloat(t.replace(/,/g, ""));
   }
-  // 1234,56
   if (t.includes(",") && !t.includes(".")) {
     return parseFloat(t.replace(",", "."));
   }
@@ -1386,5 +1745,5 @@ function roundTo(n, step) {
 }
 
 async function sleep(ms) {
-  return new Promise((r) => setTimeout(r, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
