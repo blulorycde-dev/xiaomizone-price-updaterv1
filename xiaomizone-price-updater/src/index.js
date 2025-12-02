@@ -1,4 +1,5 @@
- // Worker: price-updater con panel /admin (tema claro), modos update/reset, log, lista de productos y set-base-usd con actualización de precio
+// Worker: price-updater con panel /admin (tema claro), modos update/reset,
+// log, lista de productos y set-base-usd con actualización de precio
 
 const API_VERSION = "2024-10";
 const JOB_KEY = "price_job";
@@ -12,7 +13,7 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
-       if (req.method === "OPTIONS") {
+    if (req.method === "OPTIONS") {
       return cors(new Response(null));
     }
 
@@ -26,7 +27,6 @@ export default {
         const eta = computeETA(job);
         body.eta = eta;
 
-        // progreso aproximado
         const total = parseInt(job?.totalVariantsHint || 0, 10) || 0;
         const processed = parseInt(job?.processedVariants || 0, 10) || 0;
         if (total > 0) {
@@ -47,270 +47,271 @@ export default {
       return cors(json(body));
     }
 
-  // ---------- PANEL ADMIN (HTML) ----------
-if (path === "/admin") {
-  // Leer las variables reales del Worker para sincronizar el panel
-  const rateEnv = norm(env.MANUAL_RATE);
-  const marginEnv = norm(env.MARGIN_FACTOR);
-  const roundEnv = parseInt(env.ROUND_TO || "100", 10) || 100;
+    // ---------- PANEL ADMIN (HTML) ----------
 
-  const rateForJs = (rateEnv && rateEnv > 0) ? rateEnv : 7200;
-  const marginForJs = (marginEnv && marginEnv > 0) ? marginEnv : 1.20;
-  const roundForJs = roundEnv;
+    if (path === "/admin") {
+      // Leer las variables reales del Worker para sincronizar el panel
+      const rateEnv = norm(env.MANUAL_RATE);
+      const marginEnv = norm(env.MARGIN_FACTOR);
+      const roundEnv = parseInt(env.ROUND_TO || "100", 10) || 100;
 
-  const html = `
+      const rateForJs = rateEnv && rateEnv > 0 ? rateEnv : 7200;
+      const marginForJs = marginEnv && marginEnv > 0 ? marginEnv : 1.2;
+      const roundForJs = roundEnv;
+
+      const html = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-<title>PANEL GENERAL DE PRECIOS</title>
-<style>
-  :root { color-scheme: light; }
-  * { box-sizing: border-box; }
+  <title>PANEL GENERAL DE PRECIOS</title>
+  <style>
+    :root { color-scheme: light; }
+    * { box-sizing: border-box; }
 
-  body {
-    font-family: Arial, sans-serif;
-    background: #f4f5f7;
-    color: #222;
-    margin: 0;
-    padding: 24px;
-  }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f5f7;
+      color: #222;
+      margin: 0;
+      padding: 24px;
+    }
 
-  .box {
-    background: #ffffff;
-    padding: 20px 24px;
-    border-radius: 12px;
-    max-width: 980px;
-    margin: 0 auto;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
-    border: 1px solid #e2e4ea;
-  }
+    .box {
+      background: #ffffff;
+      padding: 20px 24px;
+      border-radius: 12px;
+      max-width: 980px;
+      margin: 0 auto;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+      border: 1px solid #e2e4ea;
+    }
 
-  h1 { margin: 0 0 4px; font-size: 22px; }
-  h3 { margin: 0 0 6px; font-size: 16px; }
+    h1 { margin: 0 0 4px; font-size: 22px; }
+    h3 { margin: 0 0 6px; font-size: 16px; }
 
-  small {
-    display:block;
-    color:#777;
-    margin-bottom:16px;
-  }
+    small {
+      display:block;
+      color:#777;
+      margin-bottom:16px;
+    }
 
-  label {
-    display: block;
-    margin-top: 10px;
-    font-size: 13px;
-    font-weight: 600;
-    color:#444;
-  }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      color:#444;
+    }
 
-  input, select {
-    width: 100%;
-    padding: 8px 10px;
-    font-size: 14px;
-    border-radius: 6px;
-    margin-top: 4px;
-    border: 1px solid #cfd3dd;
-    background: #fff;
-    color: #222;
-  }
+    input, select {
+      width: 100%;
+      padding: 8px 10px;
+      font-size: 14px;
+      border-radius: 6px;
+      margin-top: 4px;
+      border: 1px solid #cfd3dd;
+      background: #fff;
+      color: #222;
+    }
 
-  input:focus, select:focus {
-    outline: none;
-    border-color: #ff6600;
-    box-shadow: 0 0 0 1px rgba(255,102,0,0.25);
-  }
+    input:focus, select:focus {
+      outline: none;
+      border-color: #ff6600;
+      box-shadow: 0 0 0 1px rgba(255,102,0,0.25);
+    }
 
-  button {
-    margin-top: 12px;
-    padding: 8px 14px;
-    font-size: 14px;
-    background: #ff6600;
-    border: none;
-    color: #fff;
-    cursor: pointer;
-    border-radius: 6px;
-    font-weight: 600;
-  }
+    button {
+      margin-top: 12px;
+      padding: 8px 14px;
+      font-size: 14px;
+      background: #ff6600;
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      border-radius: 6px;
+      font-weight: 600;
+    }
 
-  /* Botones secundarios (Ver productos, Limpiar tabla, Guardar, etc.) */
-  button.secondary {
-    background:#63B8EE;
-    color:#fff;
-  }
-  button.secondary:hover {
-    background:#3da4e8;
-  }
+    /* Botones secundarios (Ver productos, Limpiar tabla, Guardar, etc.) */
+    button.secondary {
+      background:#63B8EE;
+      color:#fff;
+    }
+    button.secondary:hover {
+      background:#3da4e8;
+    }
 
-  button[disabled] {
-    opacity: 0.5;
-    cursor: default;
-  }
+    button[disabled] {
+      opacity: 0.5;
+      cursor: default;
+    }
 
-  .row {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-    margin-top: 8px;
-  }
-  .row button { flex: 1; }
+    .row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .row button { flex: 1; }
 
-  .section {
-    margin-top: 18px;
-    padding-top: 14px;
-    border-top: 1px solid #e0e3ec;
-  }
+    .section {
+      margin-top: 18px;
+      padding-top: 14px;
+      border-top: 1px solid #e0e3ec;
+    }
 
-  .section-header {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:8px;
-  }
+    .section-header {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:8px;
+    }
 
-  .hint {
-    font-size: 12px;
-    color:#777;
-    margin: 4px 0 8px;
-  }
+    .hint {
+      font-size: 12px;
+      color:#777;
+      margin: 4px 0 8px;
+    }
 
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 6px;
-  }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 6px;
+    }
 
-  th, td {
-    padding: 6px 8px;
-    font-size: 13px;
-    border-bottom: 1px solid #e2e4ea;
-    vertical-align: middle;
-  }
+    th, td {
+      padding: 6px 8px;
+      font-size: 13px;
+      border-bottom: 1px solid #e2e4ea;
+      vertical-align: middle;
+    }
 
-  /* Encabezados centrados */
-  th {
-    text-align: center;
-    background:#f5f6fa;
-    font-weight:600;
-  }
+    /* Encabezados centrados */
+    th {
+      text-align: center;
+      background:#f5f6fa;
+      font-weight:600;
+    }
 
-  /* Las dos primeras columnas siguen alineadas a la izquierda */
-  td:first-child,
-  td:nth-child(2) {
-    text-align:left;
-  }
+    /* Las dos primeras columnas siguen alineadas a la izquierda */
+    td:first-child,
+    td:nth-child(2) {
+      text-align:left;
+    }
 
-  td.numeric {
-    text-align:right;
-    white-space:nowrap;
-  }
+    td.numeric {
+      text-align:right;
+      white-space:nowrap;
+    }
 
-  .tag {
-    display:inline-block;
-    padding:2px 6px;
-    border-radius:999px;
-    background:#eef2ff;
-    color:#333;
-    font-size:11px;
-  }
+    .tag {
+      display:inline-block;
+      padding:2px 6px;
+      border-radius:999px;
+      background:#eef2ff;
+      color:#333;
+      font-size:11px;
+    }
 
-  .badge {
-    display:inline-block;
-    padding:2px 6px;
-    border-radius:999px;
-    font-size:11px;
-    background:#eaf7ff;
-    color:#1362a3;
-  }
+    .badge {
+      display:inline-block;
+      padding:2px 6px;
+      border-radius:999px;
+      font-size:11px;
+      background:#eaf7ff;
+      color:#1362a3;
+    }
 
-  .badge-danger {
-    background:#ffe9e6;
-    color:#b0302b;
-  }
+    .badge-danger {
+      background:#ffe9e6;
+      color:#b0302b;
+    }
 
-  .pill {
-    display:inline-flex;
-    align-items:center;
-    gap:4px;
-    padding:3px 8px;
-    border-radius:999px;
-    font-size:11px;
-    background:#f8fafc;
-    border:1px solid #e2e8f0;
-  }
+    .pill {
+      display:inline-flex;
+      align-items:center;
+      gap:4px;
+      padding:3px 8px;
+      border-radius:999px;
+      font-size:11px;
+      background:#f8fafc;
+      border:1px solid #e2e8f0;
+    }
 
-  .pill-dot {
-    width:6px;
-    height:6px;
-    border-radius:50%;
-    background:#009929; /* verde principal */
-  }
+    .pill-dot {
+      width:6px;
+      height:6px;
+      border-radius:50%;
+      background:#009929; /* verde principal */
+    }
 
-  .pill-dot.red { background:#e74c3c; }
+    .pill-dot.red { background:#e74c3c; }
 
-  .toolbar {
-    display:flex;
-    align-items:center;
-    gap:8px;
-    margin-top:8px;
-    flex-wrap: wrap;
-  }
+    .toolbar {
+      display:flex;
+      align-items:center;
+      gap:8px;
+      margin-top:8px;
+      flex-wrap: wrap;
+    }
 
-  .toolbar input {
-    max-width:260px;
-  }
+    .toolbar input {
+      max-width:260px;
+    }
 
-  .toolbar select {
-    max-width:200px;
-  }
+    .toolbar select {
+      max-width:200px;
+    }
 
-  .toolbar button {
-    margin-top:0;
-    flex:0 0 auto;
-  }
+    .toolbar button {
+      margin-top:0;
+      flex:0 0 auto;
+    }
 
-  .table-wrap {
-    max-height:420px;
-    overflow:auto;
-    margin-top:6px;
-    border-radius:8px;
-    border:1px solid #e2e4ea;
-    background:#fff;
-  }
+    .table-wrap {
+      max-height:420px;
+      overflow:auto;
+      margin-top:6px;
+      border-radius:8px;
+      border:1px solid #e2e4ea;
+      background:#fff;
+    }
 
-  .footer-note {
-    margin-top:8px;
-    font-size:11px;
-    color:#777;
-  }
+    .footer-note {
+      margin-top:8px;
+      font-size:11px;
+      color:#777;
+    }
 
-  .toggle-modified {
-    display:flex;
-    align-items:center;
-    gap:4px;
-    font-size:12px;
-    color:#555;
-  }
+    .toggle-modified {
+      display:flex;
+      align-items:center;
+      gap:4px;
+      font-size:12px;
+      color:#555;
+    }
 
-  .toggle-modified input {
-    width:auto;
-    margin-top:0;
-  }
+    .toggle-modified input {
+      width:auto;
+      margin-top:0;
+    }
 
-  /* Filas modificadas (verde suave) */
-  tr.row-modified {
-    background: rgba(92, 203, 95, 0.18); /* #5CCB5F suave */
-  }
+    /* Filas modificadas (verde suave) */
+    tr.row-modified {
+      background: rgba(92, 203, 95, 0.18);
+    }
 
-  /* Input de Base USD modificado (borde verde principal + fondo suave) */
-  input.base-input-row.modified {
-    border-color:#009929;                      /* verde principal */
-    background: rgba(92, 203, 95, 0.28);       /* verde suave un poco más fuerte */
-  }
-</style>
+    /* Input de Base USD modificado (borde verde principal + fondo suave) */
+    input.base-input-row.modified {
+      border-color:#009929;
+      background: rgba(92, 203, 95, 0.28);
+    }
+  </style>
 </head>
 <body>
   <div class="box">
-    <h1>Price Updater</h1>
+    <h1>PANEL GENERAL DE PRECIOS</h1>
     <small>Worker: price-updater · Admin protegido por PIN</small>
 
     <label>PIN de administrador</label>
@@ -442,7 +443,6 @@ if (path === "/admin") {
 
       <div class="table-wrap" id="base-table"></div>
 
-      <!-- Botón de "Ver más productos" abajo de la tabla -->
       <div style="display:flex; justify-content:flex-end; margin-top:8px;">
         <button type="button" id="btn-more-base" class="secondary" disabled>
           Ver más productos
@@ -488,40 +488,42 @@ if (path === "/admin") {
   </div>
 
   <script>
-      // Configuración sincronizada con las variables del Worker
-    const FIXED_RATE = ${rateForJs};      // viene de env.MANUAL_RATE
-    const FIXED_MARGIN = ${marginForJs};  // viene de env.MARGIN_FACTOR
-    const ROUND_STEP = ${roundForJs};     // viene de env.ROUND_TO
+    // Configuración sincronizada con las variables del Worker
+    const FIXED_RATE   = ${rateForJs};
+    const FIXED_MARGIN = ${marginForJs};
+    const ROUND_STEP   = ${roundForJs};
 
-    const pinInput = document.getElementById("pin");
+    const pinInput   = document.getElementById("pin");
     const formUpdate = document.getElementById("form-update");
-    const formReset = document.getElementById("form-reset");
-    const formBase = document.getElementById("form-base");
-    const btnStatus = document.getElementById("btn-status");
-    const btnCancel = document.getElementById("btn-cancel");
+    const formReset  = document.getElementById("form-reset");
+    const formBase   = document.getElementById("form-base");
+    const btnStatus  = document.getElementById("btn-status");
+    const btnCancel  = document.getElementById("btn-cancel");
 
-    const baseQ = document.getElementById("base-q");
-    const statusFilter = document.getElementById("status-filter");
-    const btnLoadBase = document.getElementById("btn-load-base");
-    const btnMoreBase = document.getElementById("btn-more-base");
-    const btnClearTable = document.getElementById("btn-clear-table");
-    const baseTableDiv = document.getElementById("base-table");
+    const baseQ          = document.getElementById("base-q");
+    const statusFilter   = document.getElementById("status-filter");
+    const btnLoadBase    = document.getElementById("btn-load-base");
+    const btnMoreBase    = document.getElementById("btn-more-base");
+    const btnClearTable  = document.getElementById("btn-clear-table");
+    const baseTableDiv   = document.getElementById("base-table");
     const toggleModified = document.getElementById("toggle-modified");
 
-    const logRange = document.getElementById("log-range");
+    const logRange   = document.getElementById("log-range");
     const btnLoadLog = document.getElementById("btn-load-log");
-    const logList = document.getElementById("log-list");
+    const logList    = document.getElementById("log-list");
 
-    // Prellenar formulario de actualización con regla fija
-    const rateInput = formUpdate.querySelector('input[name="rate"]');
-    const marginInput = formUpdate.querySelector('input[name="margin"]');
-    const roundInput = formUpdate.querySelector('input[name="round"]');
-    if (rateInput) rateInput.value = FIXED_RATE;
-    if (marginInput) marginInput.value = FIXED_MARGIN.toFixed(2);
-    if (roundInput) roundInput.value = ROUND_STEP;
+    // Prellenar formulario de actualización con valores de entorno
+    if (formUpdate) {
+      const rateInput   = formUpdate.querySelector('input[name="rate"]');
+      const marginInput = formUpdate.querySelector('input[name="margin"]');
+      const roundInput  = formUpdate.querySelector('input[name="round"]');
+      if (rateInput)   rateInput.value   = FIXED_RATE;
+      if (marginInput) marginInput.value = FIXED_MARGIN.toFixed(2);
+      if (roundInput)  roundInput.value  = ROUND_STEP;
+    }
 
     function getPinOrAlert() {
-      const pin = pinInput.value.trim();
+      const pin = pinInput ? pinInput.value.trim() : "";
       if (!pin) {
         alert("Ingresá el PIN de administrador");
         return null;
@@ -536,125 +538,141 @@ if (path === "/admin") {
 
     // --------- UPDATE ----------
 
-    formUpdate.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const pin = getPinOrAlert();
-      if (!pin) return;
+    if (formUpdate) {
+      formUpdate.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const pin = getPinOrAlert();
+        if (!pin) return;
 
-      const form = new FormData(formUpdate);
-      form.append("pin", pin);
-      const params = new URLSearchParams(form);
-      const url = "/start?" + params.toString();
+        const form = new FormData(formUpdate);
+        form.append("pin", pin);
+        const params = new URLSearchParams(form);
+        const url = "/start?" + params.toString();
 
-      try {
-        const r = await fetch(url);
-        const txt = await r.text();
-        let j;
-        try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-        alert(j.message || JSON.stringify(j));
-      } catch (err) {
-        alert("Error llamando al worker: " + err);
-      }
-    });
+        try {
+          const r = await fetch(url);
+          const txt = await r.text();
+          let j;
+          try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
+          alert(j.message || JSON.stringify(j));
+        } catch (err) {
+          alert("Error llamando al worker: " + err);
+        }
+      });
+    }
 
     // --------- RESET ----------
 
-    formReset.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const pin = getPinOrAlert();
-      if (!pin) return;
+    if (formReset) {
+      formReset.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const pin = getPinOrAlert();
+        if (!pin) return;
 
-      const form = new FormData(formReset);
-      form.append("pin", pin);
-      form.append("margin", "1.00");
-      form.append("round", "0");
-      const params = new URLSearchParams(form);
-      const url = "/reset-base?" + params.toString();
-      try {
-        const r = await fetch(url);
-        const txt = await r.text();
-        let j;
-        try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-        alert(j.message || JSON.stringify(j));
-      } catch (err) {
-        alert("Error llamando al worker: " + err);
-      }
-    });
+        const form = new FormData(formReset);
+        form.append("pin", pin);
+        form.append("margin", "1.00");
+        form.append("round", "0");
+        const params = new URLSearchParams(form);
+        const url = "/reset-base?" + params.toString();
+        try {
+          const r = await fetch(url);
+          const txt = await r.text();
+          let j;
+          try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
+          alert(j.message || JSON.stringify(j));
+        } catch (err) {
+          alert("Error llamando al worker: " + err);
+        }
+      });
+    }
 
     // --------- SET BASE (1 variante manual) ----------
 
-    formBase.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const pin = getPinOrAlert();
-      if (!pin) return;
+    if (formBase) {
+      formBase.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const pin = getPinOrAlert();
+        if (!pin) return;
 
-      const form = new FormData(formBase);
-      form.append("pin", pin);
-      form.append("applyRate", "1");
-      const params = new URLSearchParams(form);
-      const url = "/set-base-usd?" + params.toString();
-      try {
-        const r = await fetch(url);
-        const txt = await r.text();
-        let j;
-        try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-        alert(j.message || JSON.stringify(j));
-      } catch (err) {
-        alert("Error llamando al worker: " + err);
-      }
-    });
+        const form = new FormData(formBase);
+        form.append("pin", pin);
+        form.append("applyRate", "1");
+        const params = new URLSearchParams(form);
+        const url = "/set-base-usd?" + params.toString();
+        try {
+          const r = await fetch(url);
+          const txt = await r.text();
+          let j;
+          try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
+          alert(j.message || JSON.stringify(j));
+        } catch (err) {
+          alert("Error llamando al worker: " + err);
+        }
+      });
+    }
 
     // --------- STATUS / CANCEL ----------
 
-    btnStatus.addEventListener("click", async () => {
-      try {
-        const r = await fetch("/status");
-        const txt = await r.text();
-        alert(txt);
-      } catch (err) {
-        alert("Error consultando status: " + err);
-      }
-    });
+    if (btnStatus) {
+      btnStatus.addEventListener("click", async () => {
+        try {
+          const r = await fetch("/status");
+          const txt = await r.text();
+          alert(txt);
+        } catch (err) {
+          alert("Error consultando status: " + err);
+        }
+      });
+    }
 
-    btnCancel.addEventListener("click", async () => {
-      const pin = getPinOrAlert();
-      if (!pin) return;
-      try {
-        const r = await fetch("/cancel?pin=" + encodeURIComponent(pin));
-        const txt = await r.text();
-        let j;
-        try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-        alert(j.message || JSON.stringify(j));
-      } catch (err) {
-        alert("Error cancelando job: " + err);
-      }
-    });
+    if (btnCancel) {
+      btnCancel.addEventListener("click", async () => {
+        const pin = getPinOrAlert();
+        if (!pin) return;
+        try {
+          const r = await fetch("/cancel?pin=" + encodeURIComponent(pin));
+          const txt = await r.text();
+          let j;
+          try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
+          alert(j.message || JSON.stringify(j));
+        } catch (err) {
+          alert("Error cancelando job: " + err);
+        }
+      });
+    }
 
     // --------- LISTA DE PRODUCTOS (paginada) ----------
 
     let baseCursor = null;
     let baseRows = [];
 
-    btnClearTable.addEventListener("click", () => {
-      baseRows = [];
-      baseCursor = null;
-      baseTableDiv.innerHTML = "";
-      btnMoreBase.disabled = true;
-    });
+    if (btnClearTable) {
+      btnClearTable.addEventListener("click", () => {
+        baseRows = [];
+        baseCursor = null;
+        baseTableDiv.innerHTML = "";
+        if (btnMoreBase) btnMoreBase.disabled = true;
+      });
+    }
 
-    btnLoadBase.addEventListener("click", () => {
-      baseRows = [];
-      baseCursor = null;
-      loadBase(true);
-    });
+    if (btnLoadBase) {
+      btnLoadBase.addEventListener("click", () => {
+        baseRows = [];
+        baseCursor = null;
+        loadBase(true);
+      });
+    }
 
-    btnMoreBase.addEventListener("click", () => {
-      if (!baseCursor) {
-        alert("No hay más productos para cargar.");
-        return;
-      }
-      loadBase(false);
-    });
+    if (btnMoreBase) {
+      btnMoreBase.addEventListener("click", () => {
+        if (!baseCursor) {
+          alert("No hay más productos para cargar.");
+          return;
+        }
+        loadBase(false);
+      });
+    }
 
     if (toggleModified) {
       toggleModified.addEventListener("change", () => {
@@ -666,8 +684,8 @@ if (path === "/admin") {
       const pin = getPinOrAlert();
       if (!pin) return;
 
-      const q = (baseQ.value || "").trim();
-      const status = statusFilter.value || "";
+      const q = (baseQ && baseQ.value || "").trim();
+      const status = statusFilter ? (statusFilter.value || "") : "";
 
       const params = new URLSearchParams();
       params.set("pin", pin);
@@ -699,13 +717,15 @@ if (path === "/admin") {
         baseCursor = j.nextCursor || null;
         renderBaseTable(baseRows);
 
-        btnMoreBase.disabled = !baseCursor;
+        if (btnMoreBase) btnMoreBase.disabled = !baseCursor;
       } catch (err) {
         alert("Error llamando a /base-list: " + err);
       }
     }
 
     function renderBaseTable(rows) {
+      if (!baseTableDiv) return;
+
       if (!rows.length) {
         baseTableDiv.innerHTML = "<div style='padding:10px;font-size:13px;color:#777;'>No se encontraron variantes para esta búsqueda.</div>";
         return;
@@ -723,34 +743,29 @@ if (path === "/admin") {
       html += "</tr></thead><tbody>";
 
       for (const row of rows) {
-       const vid = row.variantId;
-const sku = row.sku || "";
-const title = row.productTitle || "";
+        const vid   = row.variantId;
+        const sku   = row.sku || "";
+        const title = row.productTitle || "";
 
-// Precio actual en Shopify (con recargo)
-const priceShop = (row.pricePyg != null && !isNaN(row.pricePyg))
-  ? Math.round(row.pricePyg)
-  : null;
+        const priceShop = (row.pricePyg != null && !isNaN(row.pricePyg))
+          ? Math.round(row.pricePyg)
+          : null;
 
-// Base USD
-const base = (row.baseUsd != null && !isNaN(row.baseUsd))
-  ? Number(row.baseUsd)
-  : null;
+        const base = (row.baseUsd != null && !isNaN(row.baseUsd))
+          ? Number(row.baseUsd)
+          : null;
 
-// Precio PYG base (sin recargo) = base_usd × tasa
-const priceBase = (base != null)
-  ? roundToClient(base * FIXED_RATE, ROUND_STEP)
-  : null;
+        const priceBase = (base != null)
+          ? roundToClient(base * FIXED_RATE, ROUND_STEP)
+          : null;
 
-// Precio PYG con recargo = base_usd × tasa × margen
-const priceRecargo = (base != null)
-  ? roundToClient(base * FIXED_RATE * FIXED_MARGIN, ROUND_STEP)
-  : null;
+        const priceRecargo = (base != null)
+          ? roundToClient(base * FIXED_RATE * FIXED_MARGIN, ROUND_STEP)
+          : null;
 
-// Tasa estimada = precio real Shopify / base_usd
-const tasa = (priceShop != null && base != null && base > 0)
-  ? (priceShop / base)
-  : null;
+        const tasa = (priceShop != null && base != null && base > 0)
+          ? (priceShop / base)
+          : null;
 
         const baseStr = base != null ? base.toFixed(2) : "";
         const tasaStr = tasa != null ? tasa.toFixed(2) : "";
@@ -760,113 +775,106 @@ const tasa = (priceShop != null && base != null && base > 0)
             ? "badge badge-danger"
             : "badge";
 
-      html += "<tr>";
-html += "<td>" + escapeHtml(title) +
-        "<br><small style='color:#999;'>Var ID: " + vid + "</small></td>";
-html += "<td>" + escapeHtml(sku) + "</td>";
+        html += "<tr data-modified='0'>";
+        html += "<td>" + escapeHtml(title) +
+          "<br><small style='color:#999;'>Var ID: " + vid + "</small></td>";
+        html += "<td>" + escapeHtml(sku) + "</td>";
 
-// Precio PYG base (sin recargo)
-html += "<td class='numeric'>" +
-        (priceBase != null ? priceBase.toLocaleString('es-PY') : "") +
-        "</td>";
+        html += "<td class='numeric'>" +
+          (priceBase != null ? priceBase.toLocaleString('es-PY') : "") +
+          "</td>";
 
-// Precio PYG con recargo (base × tasa × margen)
-html += "<td class='numeric'>" +
-        (priceRecargo != null ? priceRecargo.toLocaleString('es-PY') : "") +
-        "</td>";
+        html += "<td class='numeric'>" +
+          (priceRecargo != null ? priceRecargo.toLocaleString('es-PY') : "") +
+          "</td>";
 
-// Base USD editable
-html += "<td class='numeric'>";
-html += "<input type='number' step='0.01' style='width:100%;padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #cfd3dd;' ";
-html += "value='" + baseStr + "' data-variant-id='" + vid + "' class='base-input-row'>";
-html += "</td>";
+        html += "<td class='numeric'>";
+        html += "<input type='number' step='0.01' style='width:100%;padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #cfd3dd;' ";
+        html += "value='" + baseStr + "' data-variant-id='" + vid + "' class='base-input-row'>";
+        html += "</td>";
 
-// Tasa estimada
-html += "<td class='numeric'>" + (tasaStr
-      ? "<span class='" + tasaClass + "'>" + tasaStr + "</span>"
-      : "") + "</td>";
+        html += "<td class='numeric'>" + (tasaStr
+          ? "<span class='" + tasaClass + "'>" + tasaStr + "</span>"
+          : "") + "</td>";
 
-// Botón Guardar
-html += "<td style='text-align:center;'>";
-html += "<button type='button' class='secondary btn-save-row' data-variant-id='" + vid + "' style='font-size:12px;padding:4px 10px;margin-top:0;'>Guardar</button>";
-html += "</td>";
-html += "</tr>";
+        html += "<td style='text-align:center;'>";
+        html += "<button type='button' class='secondary btn-save-row' data-variant-id='" + vid + "' style='font-size:12px;padding:4px 10px;margin-top:0;'>Guardar</button>";
+        html += "</td>";
+        html += "</tr>";
       }
 
       html += "</tbody></table>";
       baseTableDiv.innerHTML = html;
 
       const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
-buttons.forEach(btn => {
-  btn.addEventListener("click", async () => {
-    const pin = getPinOrAlert();
-    if (!pin) return;
-    const vid = btn.getAttribute("data-variant-id");
-    const input = baseTableDiv.querySelector("input.base-input-row[data-variant-id='" + vid + "']");
-    if (!input) { alert("No se encontró el input para esa fila"); return; }
-    const val = input.value.trim();
-    if (!val) { alert("Ingresá un Base USD válido"); return; }
+      buttons.forEach(btn => {
+        btn.addEventListener("click", async () => {
+          const pin = getPinOrAlert();
+          if (!pin) return;
+          const vid = btn.getAttribute("data-variant-id");
+          const input = baseTableDiv.querySelector("input.base-input-row[data-variant-id='" + vid + "']");
+          if (!input) { alert("No se encontró el input para esa fila"); return; }
+          const val = input.value.trim();
+          if (!val) { alert("Ingresá un Base USD válido"); return; }
 
-    const params = new URLSearchParams();
-    params.set("pin", pin);
-    params.set("variantId", vid);
-    params.set("baseUsd", val);
-    params.set("applyRate", "1"); // pedir que también actualice precio
+          const params = new URLSearchParams();
+          params.set("pin", pin);
+          params.set("variantId", vid);
+          params.set("baseUsd", val);
+          params.set("applyRate", "1");
 
-    try {
-      const r = await fetch("/set-base-usd?" + params.toString());
-      const txt = await r.text();
-      let j;
-      try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-      alert(j.message || JSON.stringify(j));
+          try {
+            const r = await fetch("/set-base-usd?" + params.toString());
+            const txt = await r.text();
+            let j;
+            try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
+            alert(j.message || JSON.stringify(j));
 
-      if (j.ok) {
-        const tr = btn.closest("tr");
-        if (tr) {
-          const cells = tr.querySelectorAll("td");
-          // columnas: 0 producto, 1 sku, 2 PYG base, 3 PYG con recargo, 4 base input, 5 tasa, 6 acción
+            if (j.ok) {
+              const tr = btn.closest("tr");
+              if (tr) {
+                const cells = tr.querySelectorAll("td");
 
-          const baseNum = parseFloat(val.replace(",", "."));
-          if (baseNum && isFinite(baseNum) && baseNum > 0) {
-            // Recalcular PYG base y con recargo en el front
-            const priceBase = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
-            const priceRecargo = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
+                const baseNum = parseFloat(val.replace(",", "."));
+                if (baseNum && isFinite(baseNum) && baseNum > 0) {
+                  const priceBase = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
+                  const priceRecargo = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
 
-            const cellBase = cells[2];
-            const cellRecargo = cells[3];
-            if (cellBase) {
-              cellBase.textContent = priceBase.toLocaleString("es-PY");
-            }
-            if (cellRecargo) {
-              cellRecargo.textContent = priceRecargo.toLocaleString("es-PY");
-            }
+                  const cellBase    = cells[2];
+                  const cellRecargo = cells[3];
+                  if (cellBase) {
+                    cellBase.textContent = priceBase.toLocaleString("es-PY");
+                  }
+                  if (cellRecargo) {
+                    cellRecargo.textContent = priceRecargo.toLocaleString("es-PY");
+                  }
 
-            // Si el backend devolvió el nuevo precio PYG real, usarlo para la tasa
-            if (typeof j.newPricePYG === "number") {
-              const newPrice = j.newPricePYG;
-              const tasa = newPrice / baseNum;
-              const tasaCell = cells[5];
-              if (tasaCell) {
-                const cls = (tasa < 5000 || tasa > 10000)
-                  ? "badge badge-danger"
-                  : "badge";
-                tasaCell.innerHTML =
-                  "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
+                  if (typeof j.newPricePYG === "number") {
+                    const newPrice = j.newPricePYG;
+                    const tasa = newPrice / baseNum;
+                    const tasaCell = cells[5];
+                    if (tasaCell) {
+                      const cls = (tasa < 5000 || tasa > 10000)
+                        ? "badge badge-danger"
+                        : "badge";
+                      tasaCell.innerHTML =
+                        "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
+                    }
+                  }
+                }
+
+                input.classList.add("modified");
+                tr.classList.add("row-modified");
+                tr.setAttribute("data-modified", "1");
+                applyModifiedFilter();
               }
             }
+          } catch (err) {
+            alert("Error guardando Base USD: " + err);
           }
-
-          // marcar input como modificado visualmente
-          input.classList.add("modified");
-          tr.classList.add("tr-modified");
-        }
-      }
-    } catch (err) {
-      alert("Error guardando Base USD: " + err);
+        });
+      });
     }
-  });
-});
-
 
     function applyModifiedFilter() {
       if (!toggleModified || !baseTableDiv.querySelector("table")) return;
@@ -917,7 +925,6 @@ buttons.forEach(btn => {
           const now = Date.now();
           let filtered = entries;
 
-          // rangeVal en horas: 24, 168, 0 (todo)
           if (rangeVal > 0) {
             const maxAgeMs = rangeVal * 60 * 60 * 1000;
             filtered = entries.filter((e) => {
@@ -954,8 +961,7 @@ buttons.forEach(btn => {
             const status = entry.status || "";
             const timeTxt = entry.time || "";
 
-            let line =
-              "<strong>" + escapeHtml(product) + "</strong>";
+            let line = "<strong>" + escapeHtml(product) + "</strong>";
 
             if (baseUsd) {
               line += " — " + baseUsd + " USD";
@@ -1280,7 +1286,7 @@ buttons.forEach(btn => {
       }
 
       const rawSearch = (url.searchParams.get("q") || "").trim();
-      const status = (url.searchParams.get("status") || "").trim(); // "", "active", "draft", "archived"
+      const status = (url.searchParams.get("status") || "").trim();
       const pageSize =
         parseInt(url.searchParams.get("limit") || "50", 10) || 50;
       const cursor = url.searchParams.get("cursor") || null;
@@ -1322,7 +1328,6 @@ buttons.forEach(btn => {
   },
 };
 
-
 // ============ PROCESAMIENTO POR LOTES ============
 
 async function runBatch(env) {
@@ -1337,7 +1342,7 @@ async function runBatch(env) {
     const { products, nextPageInfo } = await fetchProducts(shop, {
       pageSize,
       pageInfo: job.pageInfo,
-      onlyActive: true, // el job solo toca productos activos
+      onlyActive: true,
     });
 
     if (!products.length) {
@@ -1455,7 +1460,6 @@ async function runBatch(env) {
   }
 }
 
-
 // ============ Shopify: listado de productos (REST para el job) ============
 
 function extractPageInfo(linkHeader) {
@@ -1472,7 +1476,7 @@ async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive 
   params.set("limit", String(pageSize));
   if (pageInfo) params.set("page_info", pageInfo);
   if (onlyActive && !pageInfo) params.set("status", "active");
-  params.set("order", "title asc"); // orden alfabético
+  params.set("order", "title asc");
 
   const url = `${baseUrl}?${params.toString()}`;
 
@@ -1500,7 +1504,6 @@ async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive 
     nextPageInfo,
   };
 }
-
 
 // ============ BASE-LIST: lista tipo "Lista de productos" (GraphQL + cursor) ============
 
@@ -1594,7 +1597,6 @@ async function fetchBaseListPage(shop, { query, pageSize, cursor }) {
 
   return { rows, nextCursor };
 }
-
 
 // ============ base_usd: lectura y siembra segura (para modo update) ============
 
@@ -1719,7 +1721,6 @@ async function updateVariantPrice(shop, variantId, pyg) {
   return r.ok;
 }
 
-
 // ============ Helpers Shopify / KV / utils ============
 
 function getShop(env) {
@@ -1823,5 +1824,6 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
