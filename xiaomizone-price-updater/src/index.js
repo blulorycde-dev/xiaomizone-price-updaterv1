@@ -12,10 +12,7 @@ export default {
     const url = new URL(req.url);
     const path = url.pathname.replace(/\/+$/, "") || "/";
 
-    // valida que haya dominio/token
-    getShop(env);
-
-    if (req.method === "OPTIONS") {
+       if (req.method === "OPTIONS") {
       return cors(new Response(null));
     }
 
@@ -1747,3 +1744,4 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
