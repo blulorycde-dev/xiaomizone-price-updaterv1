@@ -47,213 +47,266 @@ export default {
       return cors(json(body));
     }
 
-    // ---------- PANEL ADMIN (HTML) ----------
+  // ---------- PANEL ADMIN (HTML) ----------
+if (path === "/admin") {
+  // Leer las variables reales del Worker para sincronizar el panel
+  const rateEnv = norm(env.MANUAL_RATE);
+  const marginEnv = norm(env.MARGIN_FACTOR);
+  const roundEnv = parseInt(env.ROUND_TO || "100", 10) || 100;
 
-    if (path === "/admin") {
-      const html = `
+  const rateForJs = (rateEnv && rateEnv > 0) ? rateEnv : 7200;
+  const marginForJs = (marginEnv && marginEnv > 0) ? marginEnv : 1.20;
+  const roundForJs = roundEnv;
+
+  const html = `
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
-  <title>Price Updater</title>
-  <style>
-    :root { color-scheme: light; }
-    * { box-sizing: border-box; }
-    body {
-      font-family: Arial, sans-serif;
-      background: #f4f5f7;
-      color: #222;
-      margin: 0;
-      padding: 24px;
-    }
-    .box {
-      background: #ffffff;
-      padding: 20px 24px;
-      border-radius: 12px;
-      max-width: 980px;
-      margin: 0 auto;
-      box-shadow: 0 8px 20px rgba(0,0,0,0.06);
-      border: 1px solid #e2e4ea;
-    }
-    h1 { margin: 0 0 4px; font-size: 22px; }
-    h3 { margin: 0 0 6px; font-size: 16px; }
-    small {
-      display:block;
-      color:#777;
-      margin-bottom:16px;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-      font-size: 13px;
-      font-weight: 600;
-      color:#444;
-    }
-    input, select {
-      width: 100%;
-      padding: 8px 10px;
-      font-size: 14px;
-      border-radius: 6px;
-      margin-top: 4px;
-      border: 1px solid #cfd3dd;
-      background: #fff;
-      color: #222;
-    }
-    input:focus, select:focus {
-      outline: none;
-      border-color: #ff6600;
-      box-shadow: 0 0 0 1px rgba(255,102,0,0.25);
-    }
-    button {
-      margin-top: 12px;
-      padding: 8px 14px;
-      font-size: 14px;
-      background: #ff6600;
-      border: none;
-      color: #fff;
-      cursor: pointer;
-      border-radius: 6px;
-      font-weight: 600;
-    }
-    button.secondary {
-      background:#e4e7ef;
-      color:#333;
-    }
-    button:hover { background: #ff7f24; }
-    button.secondary:hover { background:#d5d9e6; }
-    button[disabled] {
-      opacity: 0.5;
-      cursor: default;
-    }
-    .row {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 8px;
-    }
-    .row button { flex: 1; }
-    .section {
-      margin-top: 18px;
-      padding-top: 14px;
-      border-top: 1px solid #e0e3ec;
-    }
-    .section-header {
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:8px;
-    }
-    .hint {
-      font-size: 12px;
-      color:#777;
-      margin: 4px 0 8px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 6px;
-    }
-    th, td {
-      padding: 6px 8px;
-      font-size: 13px;
-      border-bottom: 1px solid #e2e4ea;
-      vertical-align: middle;
-    }
-    th {
-      text-align: left;
-      background:#f5f6fa;
-      font-weight:600;
-    }
-    td.numeric {
-      text-align:right;
-      white-space:nowrap;
-    }
-    .tag {
-      display:inline-block;
-      padding:2px 6px;
-      border-radius:999px;
-      background:#eef2ff;
-      color:#333;
-      font-size:11px;
-    }
-    .badge {
-      display:inline-block;
-      padding:2px 6px;
-      border-radius:999px;
-      font-size:11px;
-      background:#eaf7ff;
-      color:#1362a3;
-    }
-    .badge-danger {
-      background:#ffe9e6;
-      color:#b0302b;
-    }
-    .pill {
-      display:inline-flex;
-      align-items:center;
-      gap:4px;
-      padding:3px 8px;
-      border-radius:999px;
-      font-size:11px;
-      background:#f8fafc;
-      border:1px solid #e2e8f0;
-    }
-    .pill-dot {
-      width:6px;
-      height:6px;
-      border-radius:50%;
-      background:#27ae60;
-    }
-    .pill-dot.red { background:#e74c3c; }
-    .toolbar {
-      display:flex;
-      align-items:center;
-      gap:8px;
-      margin-top:8px;
-      flex-wrap: wrap;
-    }
-    .toolbar input {
-      max-width:260px;
-    }
-    .toolbar select {
-      max-width:200px;
-    }
-    .toolbar button {
-      margin-top:0;
-      flex:0 0 auto;
-    }
-    .table-wrap {
-      max-height:420px;
-      overflow:auto;
-      margin-top:6px;
-      border-radius:8px;
-      border:1px solid #e2e4ea;
-      background:#fff;
-    }
-    .footer-note {
-      margin-top:8px;
-      font-size:11px;
-      color:#777;
-    }
-    .toggle-modified {
-      display:flex;
-      align-items:center;
-      gap:4px;
-      font-size:12px;
-      color:#555;
-    }
-    .toggle-modified input {
-      width:auto;
-      margin-top:0;
-    }
-    tr.row-modified {
-      background:#f0fff4;
-    }
-    input.base-input-row.modified {
-      border-color:#27ae60;
-      background:#f0fff4;
-    }
-  </style>
+<title>PANEL GENERAL DE PRECIOS</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+
+  body {
+    font-family: Arial, sans-serif;
+    background: #f4f5f7;
+    color: #222;
+    margin: 0;
+    padding: 24px;
+  }
+
+  .box {
+    background: #ffffff;
+    padding: 20px 24px;
+    border-radius: 12px;
+    max-width: 980px;
+    margin: 0 auto;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+    border: 1px solid #e2e4ea;
+  }
+
+  h1 { margin: 0 0 4px; font-size: 22px; }
+  h3 { margin: 0 0 6px; font-size: 16px; }
+
+  small {
+    display:block;
+    color:#777;
+    margin-bottom:16px;
+  }
+
+  label {
+    display: block;
+    margin-top: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color:#444;
+  }
+
+  input, select {
+    width: 100%;
+    padding: 8px 10px;
+    font-size: 14px;
+    border-radius: 6px;
+    margin-top: 4px;
+    border: 1px solid #cfd3dd;
+    background: #fff;
+    color: #222;
+  }
+
+  input:focus, select:focus {
+    outline: none;
+    border-color: #ff6600;
+    box-shadow: 0 0 0 1px rgba(255,102,0,0.25);
+  }
+
+  button {
+    margin-top: 12px;
+    padding: 8px 14px;
+    font-size: 14px;
+    background: #ff6600;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+
+  /* Botones secundarios (Ver productos, Limpiar tabla, Guardar, etc.) */
+  button.secondary {
+    background:#63B8EE;
+    color:#fff;
+  }
+  button.secondary:hover {
+    background:#3da4e8;
+  }
+
+  button[disabled] {
+    opacity: 0.5;
+    cursor: default;
+  }
+
+  .row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+  .row button { flex: 1; }
+
+  .section {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #e0e3ec;
+  }
+
+  .section-header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+  }
+
+  .hint {
+    font-size: 12px;
+    color:#777;
+    margin: 4px 0 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 6px;
+  }
+
+  th, td {
+    padding: 6px 8px;
+    font-size: 13px;
+    border-bottom: 1px solid #e2e4ea;
+    vertical-align: middle;
+  }
+
+  /* Encabezados centrados */
+  th {
+    text-align: center;
+    background:#f5f6fa;
+    font-weight:600;
+  }
+
+  /* Las dos primeras columnas siguen alineadas a la izquierda */
+  td:first-child,
+  td:nth-child(2) {
+    text-align:left;
+  }
+
+  td.numeric {
+    text-align:right;
+    white-space:nowrap;
+  }
+
+  .tag {
+    display:inline-block;
+    padding:2px 6px;
+    border-radius:999px;
+    background:#eef2ff;
+    color:#333;
+    font-size:11px;
+  }
+
+  .badge {
+    display:inline-block;
+    padding:2px 6px;
+    border-radius:999px;
+    font-size:11px;
+    background:#eaf7ff;
+    color:#1362a3;
+  }
+
+  .badge-danger {
+    background:#ffe9e6;
+    color:#b0302b;
+  }
+
+  .pill {
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    padding:3px 8px;
+    border-radius:999px;
+    font-size:11px;
+    background:#f8fafc;
+    border:1px solid #e2e8f0;
+  }
+
+  .pill-dot {
+    width:6px;
+    height:6px;
+    border-radius:50%;
+    background:#009929; /* verde principal */
+  }
+
+  .pill-dot.red { background:#e74c3c; }
+
+  .toolbar {
+    display:flex;
+    align-items:center;
+    gap:8px;
+    margin-top:8px;
+    flex-wrap: wrap;
+  }
+
+  .toolbar input {
+    max-width:260px;
+  }
+
+  .toolbar select {
+    max-width:200px;
+  }
+
+  .toolbar button {
+    margin-top:0;
+    flex:0 0 auto;
+  }
+
+  .table-wrap {
+    max-height:420px;
+    overflow:auto;
+    margin-top:6px;
+    border-radius:8px;
+    border:1px solid #e2e4ea;
+    background:#fff;
+  }
+
+  .footer-note {
+    margin-top:8px;
+    font-size:11px;
+    color:#777;
+  }
+
+  .toggle-modified {
+    display:flex;
+    align-items:center;
+    gap:4px;
+    font-size:12px;
+    color:#555;
+  }
+
+  .toggle-modified input {
+    width:auto;
+    margin-top:0;
+  }
+
+  /* Filas modificadas (verde suave) */
+  tr.row-modified {
+    background: rgba(92, 203, 95, 0.18); /* #5CCB5F suave */
+  }
+
+  /* Input de Base USD modificado (borde verde principal + fondo suave) */
+  input.base-input-row.modified {
+    border-color:#009929;                      /* verde principal */
+    background: rgba(92, 203, 95, 0.28);       /* verde suave un poco más fuerte */
+  }
+</style>
 </head>
 <body>
   <div class="box">
@@ -405,8 +458,8 @@ export default {
     <div class="section">
       <h3>Control rápido del job</h3>
       <div class="row">
-        <button id="btn-status" type="button" class="secondary">Ver status</button>
-        <button id="btn-cancel" type="button" class="secondary">Cancelar job</button>
+        <button id="btn-status" type="button" class="secondary">Ver Estado</button>
+        <button id="btn-cancel" type="button" class="secondary">Cancelar Actualización</button>
       </div>
     </div>
 
@@ -435,10 +488,10 @@ export default {
   </div>
 
   <script>
-    // Configuración fija que querés respetar siempre en el panel (solo visual)
-    const FIXED_RATE = 7200;      // tasa USD → PYG
-    const FIXED_MARGIN = 1.20;    // recargo 20%
-    const ROUND_STEP = 100;       // redondeo a 100 Gs
+      // Configuración sincronizada con las variables del Worker
+    const FIXED_RATE = ${rateForJs};      // viene de env.MANUAL_RATE
+    const FIXED_MARGIN = ${marginForJs};  // viene de env.MARGIN_FACTOR
+    const ROUND_STEP = ${roundForJs};     // viene de env.ROUND_TO
 
     const pinInput = document.getElementById("pin");
     const formUpdate = document.getElementById("form-update");
@@ -662,28 +715,42 @@ export default {
       html += "<thead><tr>";
       html += "<th>Producto</th>";
       html += "<th>SKU</th>";
-      html += "<th class='numeric'>Precio PYG actual</th>";
-      html += "<th class='numeric'>Precio 7.200 + 20%</th>";
+      html += "<th class='numeric'>Precio PYG base</th>";
+      html += "<th class='numeric'>Precio PYG con recargo</th>";
       html += "<th class='numeric'>Base USD</th>";
       html += "<th class='numeric'>Tasa estimada</th>";
       html += "<th style='text-align:center;'>Acción</th>";
       html += "</tr></thead><tbody>";
 
       for (const row of rows) {
-        const vid = row.variantId;
-        const sku = row.sku || "";
-        const title = row.productTitle || "";
-        const price = (row.pricePyg != null && !isNaN(row.pricePyg)) ? Math.round(row.pricePyg) : null;
-        const base = (row.baseUsd != null && !isNaN(row.baseUsd)) ? Number(row.baseUsd) : null;
+       const vid = row.variantId;
+const sku = row.sku || "";
+const title = row.productTitle || "";
 
-        // Precio calculado con la regla fija 7200 + 20%
-        const priceCalc = (base != null)
-          ? roundToClient(base * FIXED_RATE * FIXED_MARGIN, ROUND_STEP)
-          : null;
+// Precio actual en Shopify (con recargo)
+const priceShop = (row.pricePyg != null && !isNaN(row.pricePyg))
+  ? Math.round(row.pricePyg)
+  : null;
 
-        const tasa = (price != null && base != null && base > 0)
-          ? (price / base)
-          : null;
+// Base USD
+const base = (row.baseUsd != null && !isNaN(row.baseUsd))
+  ? Number(row.baseUsd)
+  : null;
+
+// Precio PYG base (sin recargo) = base_usd × tasa
+const priceBase = (base != null)
+  ? roundToClient(base * FIXED_RATE, ROUND_STEP)
+  : null;
+
+// Precio PYG con recargo = base_usd × tasa × margen
+const priceRecargo = (base != null)
+  ? roundToClient(base * FIXED_RATE * FIXED_MARGIN, ROUND_STEP)
+  : null;
+
+// Tasa estimada = precio real Shopify / base_usd
+const tasa = (priceShop != null && base != null && base > 0)
+  ? (priceShop / base)
+  : null;
 
         const baseStr = base != null ? base.toFixed(2) : "";
         const tasaStr = tasa != null ? tasa.toFixed(2) : "";
@@ -693,101 +760,113 @@ export default {
             ? "badge badge-danger"
             : "badge";
 
-        html += "<tr>";
-        html += "<td>" + escapeHtml(title) +
-                "<br><small style='color:#999;'>Var ID: " + vid + "</small></td>";
-        html += "<td>" + escapeHtml(sku) + "</td>";
+      html += "<tr>";
+html += "<td>" + escapeHtml(title) +
+        "<br><small style='color:#999;'>Var ID: " + vid + "</small></td>";
+html += "<td>" + escapeHtml(sku) + "</td>";
 
-        // Precio PYG actual
-        html += "<td class='numeric'>" + (price != null ? price.toLocaleString('es-PY') : "") + "</td>";
+// Precio PYG base (sin recargo)
+html += "<td class='numeric'>" +
+        (priceBase != null ? priceBase.toLocaleString('es-PY') : "") +
+        "</td>";
 
-        // Precio calculado 7200 + 20%
-        html += "<td class='numeric'>" + (priceCalc != null ? priceCalc.toLocaleString('es-PY') : "") + "</td>";
+// Precio PYG con recargo (base × tasa × margen)
+html += "<td class='numeric'>" +
+        (priceRecargo != null ? priceRecargo.toLocaleString('es-PY') : "") +
+        "</td>";
 
-        // Base USD editable
-        html += "<td class='numeric'>";
-        html += "<input type='number' step='0.01' style='width:100%;padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #cfd3dd;' ";
-        html += "value='" + baseStr + "' data-variant-id='" + vid + "' data-original-base='" + baseStr + "' class='base-input-row'>";
-        html += "</td>";
+// Base USD editable
+html += "<td class='numeric'>";
+html += "<input type='number' step='0.01' style='width:100%;padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #cfd3dd;' ";
+html += "value='" + baseStr + "' data-variant-id='" + vid + "' class='base-input-row'>";
+html += "</td>";
 
-        // Tasa estimada
-        html += "<td class='numeric'>" + (tasaStr
-              ? "<span class='" + tasaClass + "'>" + tasaStr + "</span>"
-              : "") + "</td>";
+// Tasa estimada
+html += "<td class='numeric'>" + (tasaStr
+      ? "<span class='" + tasaClass + "'>" + tasaStr + "</span>"
+      : "") + "</td>";
 
-        // Botón Guardar
-        html += "<td style='text-align:center;'>";
-        html += "<button type='button' class='secondary btn-save-row' data-variant-id='" + vid + "' style='font-size:12px;padding:4px 10px;margin-top:0;'>Guardar</button>";
-        html += "</td>";
-        html += "</tr>";
+// Botón Guardar
+html += "<td style='text-align:center;'>";
+html += "<button type='button' class='secondary btn-save-row' data-variant-id='" + vid + "' style='font-size:12px;padding:4px 10px;margin-top:0;'>Guardar</button>";
+html += "</td>";
+html += "</tr>";
       }
 
       html += "</tbody></table>";
       baseTableDiv.innerHTML = html;
 
       const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
-      buttons.forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const pin = getPinOrAlert();
-          if (!pin) return;
-          const vid = btn.getAttribute("data-variant-id");
-          const input = baseTableDiv.querySelector("input.base-input-row[data-variant-id='" + vid + "']");
-          if (!input) { alert("No se encontró el input para esa fila"); return; }
-          const val = input.value.trim();
-          if (!val) { alert("Ingresá un Base USD válido"); return; }
+buttons.forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const pin = getPinOrAlert();
+    if (!pin) return;
+    const vid = btn.getAttribute("data-variant-id");
+    const input = baseTableDiv.querySelector("input.base-input-row[data-variant-id='" + vid + "']");
+    if (!input) { alert("No se encontró el input para esa fila"); return; }
+    const val = input.value.trim();
+    if (!val) { alert("Ingresá un Base USD válido"); return; }
 
-          const params = new URLSearchParams();
-          params.set("pin", pin);
-          params.set("variantId", vid);
-          params.set("baseUsd", val);
-          params.set("applyRate", "1"); // pedir que también actualice precio
+    const params = new URLSearchParams();
+    params.set("pin", pin);
+    params.set("variantId", vid);
+    params.set("baseUsd", val);
+    params.set("applyRate", "1"); // pedir que también actualice precio
 
-          try {
-            const r = await fetch("/set-base-usd?" + params.toString());
-            const txt = await r.text();
-            let j;
-            try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-            alert(j.message || JSON.stringify(j));
+    try {
+      const r = await fetch("/set-base-usd?" + params.toString());
+      const txt = await r.text();
+      let j;
+      try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
+      alert(j.message || JSON.stringify(j));
 
-            // Si el backend devolvió el nuevo precio, actualizamos la fila en vivo
-            if (j.ok && typeof j.newPricePYG === "number") {
-              const newPrice = j.newPricePYG;
-              const tr = btn.closest("tr");
-              if (tr) {
-                // columnas: 1=producto, 2=sku, 3=precio actual, 4=precio 7200+20%, 5=base, 6=tasa, 7=acción
-                const priceCell = tr.querySelector("td.numeric:nth-child(3)");
-                if (priceCell) {
-                  priceCell.textContent = newPrice.toLocaleString("es-PY");
-                }
+      if (j.ok) {
+        const tr = btn.closest("tr");
+        if (tr) {
+          const cells = tr.querySelectorAll("td");
+          // columnas: 0 producto, 1 sku, 2 PYG base, 3 PYG con recargo, 4 base input, 5 tasa, 6 acción
 
-                // marcar fila como modificada
-                tr.classList.add("row-modified");
-                input.classList.add("modified");
-                tr.setAttribute("data-modified", "1");
-                input.setAttribute("data-original-base", val);
+          const baseNum = parseFloat(val.replace(",", "."));
+          if (baseNum && isFinite(baseNum) && baseNum > 0) {
+            // Recalcular PYG base y con recargo en el front
+            const priceBase = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
+            const priceRecargo = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
 
-                // Recalcular tasa estimada con el nuevo precio y base_usd
-                const baseNum = parseFloat(val.replace(",", "."));
-                if (baseNum && isFinite(baseNum) && baseNum > 0) {
-                  const tasa = newPrice / baseNum;
-                  const tasaCell = tr.querySelector("td.numeric:nth-child(6)");
-                  if (tasaCell) {
-                    const cls = (tasa < 5000 || tasa > 15000)
-                      ? "badge badge-danger"
-                      : "badge";
-                    tasaCell.innerHTML =
-                      "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
-                  }
-                }
-              }
-              applyModifiedFilter();
+            const cellBase = cells[2];
+            const cellRecargo = cells[3];
+            if (cellBase) {
+              cellBase.textContent = priceBase.toLocaleString("es-PY");
             }
-          } catch (err) {
-            alert("Error guardando Base USD: " + err);
+            if (cellRecargo) {
+              cellRecargo.textContent = priceRecargo.toLocaleString("es-PY");
+            }
+
+            // Si el backend devolvió el nuevo precio PYG real, usarlo para la tasa
+            if (typeof j.newPricePYG === "number") {
+              const newPrice = j.newPricePYG;
+              const tasa = newPrice / baseNum;
+              const tasaCell = cells[5];
+              if (tasaCell) {
+                const cls = (tasa < 5000 || tasa > 10000)
+                  ? "badge badge-danger"
+                  : "badge";
+                tasaCell.innerHTML =
+                  "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
+              }
+            }
           }
-        });
-      });
+
+          // marcar input como modificado visualmente
+          input.classList.add("modified");
+          tr.classList.add("tr-modified");
+        }
+      }
+    } catch (err) {
+      alert("Error guardando Base USD: " + err);
     }
+  });
+});
+
 
     function applyModifiedFilter() {
       if (!toggleModified || !baseTableDiv.querySelector("table")) return;
@@ -1744,4 +1823,5 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
