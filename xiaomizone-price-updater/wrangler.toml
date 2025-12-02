@@ -1,7 +1,27 @@
 name = "price-updater"
-main = "./src/index.js"
+main = "src/index.js"
 compatibility_date = "2024-11-01"
-workers_dev = true
 
 [vars]
 API_VERSION = "2024-10"
+SHOPIFY_STORE_DOMAIN = "0bjaat-hq.myshopify.com"
+
+# Config oficial del pricing (se modifica solo aquí)
+MANUAL_RATE = "7200"
+MARGIN_FACTOR = "1.20"
+ROUND_TO = "100"
+
+# Config del job por lotes
+TOTAL_VARIANTS_HINT = "1000"
+CRON_MINUTES = "2"
+
+# Seguridad del panel
+ADMIN_PIN = "1234"
+
+[[kv_namespaces]]
+binding = "JOBS_KV"
+id = "3252d7546eee4925a5dbee496d91c04b"   # KV: jobs price updater
+
+[[kv_namespaces]]
+binding = "LOG_KV"
+id = "1aa2052b4a54493dbdcc910bb9382d75"   # KV: price-updater-logs
