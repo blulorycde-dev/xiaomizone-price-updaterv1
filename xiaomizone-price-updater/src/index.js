@@ -56,7 +56,7 @@ export default {
       const roundEnv = parseInt(env.ROUND_TO || "100", 10) || 100;
 
       const rateForJs = rateEnv && rateEnv > 0 ? rateEnv : 7200;
-      const marginForJs = marginEnv && marginEnv > 0 ? marginEnv : 1.2;
+      const marginForJs = marginEnv && marginEnv > 0 ? marginEnv : 1.25;
       const roundForJs = roundEnv;
 
       const html = `
@@ -822,6 +822,10 @@ export default {
           params.set("variantId", vid);
           params.set("baseUsd", val);
           params.set("applyRate", "1");
+          params.set("rate", String(FIXED_RATE));
+params.set("margin", String(FIXED_MARGIN));
+params.set("round", String(ROUND_STEP));
+
 
           try {
             const r = await fetch("/set-base-usd?" + params.toString());
@@ -1038,7 +1042,7 @@ export default {
       const margin =
         norm(url.searchParams.get("margin")) ||
         norm(env.MARGIN_FACTOR) ||
-        1.0;
+        1.25;
       const roundToVal =
         parseInt(url.searchParams.get("round") || env.ROUND_TO || "0", 10) || 0;
       const totalVariantsHint =
@@ -1175,20 +1179,35 @@ export default {
       const okBase = await upsertBaseUSD_GQL(shop, variantId, baseUsd);
 
       let newPricePYG = null;
-
       if (okBase && applyRate) {
+        // Prioridad: params del panel -> env -> fallback seguro
+        const rateParam = norm(url.searchParams.get("rate"));
+        const marginParam = norm(url.searchParams.get("margin"));
+        const roundParamRaw = url.searchParams.get("round");
+
         const rateEnv = norm(env.MANUAL_RATE);
         const marginEnv = norm(env.MARGIN_FACTOR);
-        const margin = Number.isFinite(marginEnv) && marginEnv > 0 ? marginEnv : 1.0;
-        const roundToVal = parseInt(env.ROUND_TO || "0", 10) || 0;
+        const roundEnv = parseInt(env.ROUND_TO || "0", 10) || 0;
 
-        if (rateEnv && rateEnv > 0) {
-          let calc = baseUsd * rateEnv * margin;
-          calc = roundTo(calc, roundToVal);
+        const rateUse =
+          Number.isFinite(rateParam) && rateParam > 0 ? rateParam : rateEnv;
+
+        const marginUse =
+          Number.isFinite(marginParam) && marginParam > 0
+            ? marginParam
+            : (Number.isFinite(marginEnv) && marginEnv > 0 ? marginEnv : 1.25);
+
+        const roundUse = (() => {
+          const rp = parseInt(roundParamRaw || "", 10);
+          return Number.isFinite(rp) ? rp : roundEnv;
+        })();
+
+        if (rateUse && rateUse > 0) {
+          let calc = baseUsd * rateUse * marginUse;
+          calc = roundTo(calc, roundUse);
+
           const okPrice = await updateVariantPrice(shop, variantId, calc);
-          if (okPrice) {
-            newPricePYG = calc;
-          }
+          if (okPrice) newPricePYG = calc;
         }
       }
 
@@ -1824,6 +1843,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
