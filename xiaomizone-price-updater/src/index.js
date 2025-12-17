@@ -1061,6 +1061,7 @@ params.set("round", String(ROUND_STEP));
         running: true,
         startedAt: new Date().toISOString(),
         pageInfo: null,
+        cursorResets: 0,
         processedProducts: 0,
         processedVariants: 0,
         updatedVariants: 0,
@@ -1356,13 +1357,37 @@ async function runBatch(env) {
 
   const mode = job.mode || "update";
 
-  try {
-    const pageSize = 25;
-    const { products, nextPageInfo } = await fetchProducts(shop, {
+    try {
+    const pageSize = 10;
+
+    const { products, nextPageInfo, cursorInvalid } = await fetchProducts(shop, {
       pageSize,
       pageInfo: job.pageInfo,
       onlyActive: true,
     });
+
+    // ✅ NUEVO: si Shopify devolvió 400 por cursor/page_info inválido, no cortar el job
+    if (cursorInvalid) {
+      job.cursorResets = (job.cursorResets || 0) + 1;
+
+      if (job.cursorResets <= 3) {
+        job.pageInfo = null; // restart paginación desde el inicio
+        job.lastRunAt = new Date().toISOString();
+        job.lastMsg =
+          "Cursor inválido (400). Reiniciando paginación (" +
+          job.cursorResets +
+          "/3)";
+        await saveJob(env, job);
+        return;
+      } else {
+        job.running = false;
+        job.lastRunAt = new Date().toISOString();
+        job.lastMsg =
+          "ERROR: cursor inválido repetido. Job detenido para evitar loop.";
+        await saveJob(env, job);
+        return;
+      }
+    }
 
     if (!products.length) {
       job.running = false;
@@ -1373,46 +1398,6 @@ async function runBatch(env) {
     }
 
     let variantsDone = 0;
-
-    for (const p of products) {
-      job.processedProducts++;
-      for (const v of (p.variants || [])) {
-        if (variantsDone >= BATCH_LIMIT) break;
-
-        const variantId = v.id;
-        const pricePYG = norm(v.price);
-        if (!pricePYG || pricePYG <= 0) {
-          await sleep(REQ_THROTTLE_MS);
-          continue;
-        }
-
-        job.processedVariants++;
-
-        if (mode === "reset_base") {
-          const baseCalculated = Math.round((pricePYG / job.rate) * 100) / 100;
-          let status = "skipped";
-
-          if (Number.isFinite(baseCalculated) && baseCalculated > 0) {
-            const ok = await upsertBaseUSD_GQL(shop, variantId, baseCalculated);
-            if (ok) {
-              job.seededVariants++;
-              status = "base_usd_reset";
-            }
-          }
-
-          await addLog(env, {
-            product: p.title || "No title",
-            variantId,
-            price_before: Math.round(pricePYG),
-            price_after: Math.round(pricePYG),
-            status,
-          });
-
-          variantsDone++;
-          await sleep(REQ_THROTTLE_MS);
-          if (variantsDone >= BATCH_LIMIT) break;
-          continue;
-        }
 
         // modo update normal
         const { baseUsd, seeded } = await getOrSeedBaseUSD(
@@ -1494,7 +1479,7 @@ async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive 
   const params = new URLSearchParams();
   params.set("limit", String(pageSize));
   if (pageInfo) params.set("page_info", pageInfo);
-  if (onlyActive && !pageInfo) params.set("status", "active");
+  if (onlyActive) params.set("status", "active");
   params.set("order", "title asc");
 
   const url = `${baseUrl}?${params.toString()}`;
@@ -1507,12 +1492,12 @@ async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive 
     },
   });
 
-  if (!r.ok) {
-    if (r.status === 400 && pageInfo) {
-      return { products: [], nextPageInfo: null };
-    }
-    throw new Error("GET products -> " + r.status);
+if (!r.ok) {
+  if (r.status === 400 && pageInfo) {
+    return { products: [], nextPageInfo: null, cursorInvalid: true };
   }
+  throw new Error("GET products -> " + r.status);
+}
 
   const data = await r.json();
   const link = r.headers.get("Link") || "";
@@ -1521,6 +1506,7 @@ async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive 
   return {
     products: (data && data.products) ? data.products : [],
     nextPageInfo,
+    cursorInvalid: false,
   };
 }
 
@@ -1843,6 +1829,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
