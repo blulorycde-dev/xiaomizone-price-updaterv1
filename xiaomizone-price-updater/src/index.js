@@ -1130,6 +1130,7 @@ params.set("round", String(ROUND_STEP));
         running: true,
         startedAt: new Date().toISOString(),
         pageInfo: null,
+        cursorResets: 0,
         processedProducts: 0,
         processedVariants: 0,
         updatedVariants: 0,
@@ -1829,6 +1830,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
