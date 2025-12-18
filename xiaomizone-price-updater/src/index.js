@@ -1358,8 +1358,7 @@ async function runBatch(env) {
   if (!job?.running) return;
 
   const mode = job.mode || "update";
-
-    try {
+  try {
     const pageSize = 10;
 
     const { products, nextPageInfo, cursorInvalid } = await fetchProducts(shop, {
@@ -1368,12 +1367,12 @@ async function runBatch(env) {
       onlyActive: true,
     });
 
-    // ✅ NUEVO: si Shopify devolvió 400 por cursor/page_info inválido, no cortar el job
+    // FIX: si Shopify devolvió 400 por cursor, reiniciar paginación sin “rendirse”
     if (cursorInvalid) {
       job.cursorResets = (job.cursorResets || 0) + 1;
 
       if (job.cursorResets <= 3) {
-        job.pageInfo = null; // restart paginación desde el inicio
+        job.pageInfo = null; // restart paginación
         job.lastRunAt = new Date().toISOString();
         job.lastMsg =
           "Cursor inválido (400). Reiniciando paginación (" +
@@ -1401,6 +1400,48 @@ async function runBatch(env) {
 
     let variantsDone = 0;
 
+    for (const p of products) {
+      job.processedProducts++;
+
+      for (const v of (p.variants || [])) {
+        if (variantsDone >= BATCH_LIMIT) break;
+
+        const variantId = v.id;
+        const pricePYG = norm(v.price);
+
+        if (!pricePYG || pricePYG <= 0) {
+          await sleep(REQ_THROTTLE_MS);
+          continue;
+        }
+
+        job.processedVariants++;
+
+        if (mode === "reset_base") {
+          const baseCalculated = Math.round((pricePYG / job.rate) * 100) / 100;
+          let status = "skipped";
+
+          if (Number.isFinite(baseCalculated) && baseCalculated > 0) {
+            const ok = await upsertBaseUSD_GQL(shop, variantId, baseCalculated);
+            if (ok) {
+              job.seededVariants++;
+              status = "base_usd_reset";
+            }
+          }
+
+          await addLog(env, {
+            product: p.title || "No title",
+            variantId,
+            price_before: Math.round(pricePYG),
+            price_after: Math.round(pricePYG),
+            status,
+          });
+
+          variantsDone++;
+          await sleep(REQ_THROTTLE_MS);
+          if (variantsDone >= BATCH_LIMIT) break;
+          continue;
+        }
+
         // modo update normal
         const { baseUsd, seeded } = await getOrSeedBaseUSD(
           shop,
@@ -1408,6 +1449,7 @@ async function runBatch(env) {
           pricePYG,
           job.rate
         );
+
         if (!baseUsd || baseUsd <= 0) {
           await sleep(REQ_THROTTLE_MS);
           continue;
@@ -1440,6 +1482,7 @@ async function runBatch(env) {
         await sleep(REQ_THROTTLE_MS);
         if (variantsDone >= BATCH_LIMIT) break;
       }
+
       if (variantsDone >= BATCH_LIMIT) break;
     }
 
@@ -1448,23 +1491,17 @@ async function runBatch(env) {
     job.lastMsg = !nextPageInfo
       ? "Completado (fin de paginacion)"
       : "Procesados: " + variantsDone;
+
     if (!nextPageInfo && variantsDone < BATCH_LIMIT) {
       job.running = false;
     }
 
     await saveJob(env, job);
   } catch (e) {
-    if (String(e.message || "").includes("GET products -> 400")) {
-      job.pageInfo = null;
-      job.running = false;
-      job.lastMsg = "Completado (fin de paginacion)";
-    } else {
-      job.lastMsg = "ERROR: " + (e?.message || String(e));
-    }
+    job.lastMsg = "ERROR: " + (e?.message || String(e));
     job.lastRunAt = new Date().toISOString();
     await saveJob(env, job);
   }
-}
 
 // ============ Shopify: listado de productos (REST para el job) ============
 
@@ -1473,7 +1510,7 @@ function extractPageInfo(linkHeader) {
   const match = linkHeader.match(/<[^>]*[?&]page_info=([^&>]*)>; rel="next"/i);
   return match ? match[1] : null;
 }
-
+  
 async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive = true }) {
   const { domain, token } = shop;
   const baseUrl = `https://${domain}/admin/api/${API_VERSION}/products.json`;
@@ -1481,7 +1518,7 @@ async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive 
   const params = new URLSearchParams();
   params.set("limit", String(pageSize));
   if (pageInfo) params.set("page_info", pageInfo);
-  if (onlyActive) params.set("status", "active");
+  if (onlyActive && !pageInfo) params.set("status", "active");
   params.set("order", "title asc");
 
   const url = `${baseUrl}?${params.toString()}`;
@@ -1494,12 +1531,13 @@ async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive 
     },
   });
 
-if (!r.ok) {
-  if (r.status === 400 && pageInfo) {
-    return { products: [], nextPageInfo: null, cursorInvalid: true };
+  if (!r.ok) {
+    // Cursor inválido: NO tirar excepción, avisar al job para resetear
+    if (r.status === 400 && pageInfo) {
+      return { products: [], nextPageInfo: null, cursorInvalid: true };
+    }
+    throw new Error("GET products -> " + r.status);
   }
-  throw new Error("GET products -> " + r.status);
-}
 
   const data = await r.json();
   const link = r.headers.get("Link") || "";
@@ -1511,6 +1549,7 @@ if (!r.ok) {
     cursorInvalid: false,
   };
 }
+
 
 // ============ BASE-LIST: lista tipo "Lista de productos" (GraphQL + cursor) ============
 
@@ -1831,6 +1870,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
