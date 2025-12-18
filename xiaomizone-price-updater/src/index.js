@@ -1310,43 +1310,48 @@ if (okBase) {
 
     // ---------- BASE-LIST: lista tipo "Lista de productos" ----------
 
-    if (path === "/base-list" && req.method === "GET") {
-      const pinProvided = url.searchParams.get("pin") || "";
-      const validPin = env.ADMIN_PIN;
-      if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-      if (!pinProvided || pinProvided !== validPin) {
-        return cors(text("PIN inválido", 403));
-      }
+  if (path === "/base-list" && req.method === "GET") {
+  const pinProvided = url.searchParams.get("pin") || "";
+  if (pinProvided !== env.ADMIN_PIN) {
+    return cors(json({ ok: false, message: "PIN inválido" }, 403));
+  }
 
-      const rawSearch = (url.searchParams.get("q") || "").trim();
-      const status = (url.searchParams.get("status") || "").trim();
-      const pageSize =
-        parseInt(url.searchParams.get("limit") || "50", 10) || 50;
-      const cursor = url.searchParams.get("cursor") || null;
+  try {
+    const rawSearch = (url.searchParams.get("q") || "").trim();
+    const status = (url.searchParams.get("status") || "").trim();
+    const pageSize = parseInt(url.searchParams.get("limit") || "50", 10);
+    const cursor = url.searchParams.get("cursor") || null;
 
-      const parts = [];
-      if (rawSearch) parts.push(rawSearch);
-      if (status === "active") parts.push("status:active");
-      else if (status === "draft") parts.push("status:draft");
-      else if (status === "archived") parts.push("status:archived");
+    const parts = [];
+    if (rawSearch) parts.push(rawSearch);
+    if (status === "active") parts.push("status:active");
+    else if (status === "draft") parts.push("status:draft");
+    else if (status === "archived") parts.push("status:archived");
 
-      const finalQuery = parts.length ? parts.join(" AND ") : null;
+    const finalQuery = parts.length ? parts.join(" AND ") : null;
 
-      const shop = getShop(env);
-      const page = await fetchBaseListPage(shop, {
-        query: finalQuery,
-        pageSize,
-        cursor,
-      });
+    const shop = getShop(env);
 
-      return cors(
-        json({
-          ok: true,
-          rows: page.rows,
-          nextCursor: page.nextCursor,
-        })
-      );
-    }
+    const page = await fetchBaseListPage(shop, {
+      query: finalQuery,
+      pageSize,
+      cursor,
+    });
+
+    return cors(json({
+      ok: true,
+      rows: page.rows,
+      nextCursor: page.nextCursor,
+    }));
+
+  } catch (e) {
+    return cors(json({
+      ok: false,
+      message: "Error interno en /base-list",
+      error: e?.message || String(e),
+    }, 500));
+  }
+}
 
     // fallback
     return cors(
@@ -1622,28 +1627,48 @@ async function fetchBaseListPage(shop, { query, pageSize, cursor }) {
   });
 
   if (!r.ok) {
-    throw new Error("GraphQL base-list -> " + r.status);
+    const txt = await r.text().catch(() => "");
+    throw new Error(
+      "GraphQL base-list -> " + r.status + (txt ? " | " + txt.slice(0, 200) : "")
+    );
   }
 
-  const data = await r.json();
+  let data;
+  try {
+    data = await r.json();
+  } catch {
+    throw new Error("Respuesta GraphQL no es JSON");
+  }
+
+  // Si GraphQL responde con errors, también hay que cortar acá
+  if (data?.errors?.length) {
+    throw new Error("GraphQL errors: " + data.errors.map(e => e.message).join(" | "));
+  }
+
   const productsNode = data?.data?.products;
   const edges = productsNode?.edges || [];
   const pageInfo = productsNode?.pageInfo || {};
   const rows = [];
 
   for (const e of edges) {
-    const pNode = e.node;
-    const title = pNode?.title || "Sin titulo";
-    const variantsEdges = pNode?.variants?.edges || [];
+    const pNode = e?.node;
+    if (!pNode) continue;
 
+    const title = pNode.title || "Sin titulo";
+    const productId = (pNode.id || "").split("/").pop() || "";
+    const productStatus = String(pNode.status || "").toLowerCase(); // active/draft/archived (en minúscula)
+
+    const variantsEdges = pNode?.variants?.edges || [];
     for (const ve of variantsEdges) {
-      const vNode = ve.node;
+      const vNode = ve?.node;
       if (!vNode) continue;
 
       const gid = vNode.id || "";
       const variantId = gid.split("/").pop();
       const sku = vNode.sku || "";
+
       const price = vNode.price != null ? Number(vNode.price) : null;
+
       const mf = vNode.metafield;
       const baseUsdVal = mf?.value != null ? Number(mf.value) : null;
 
@@ -1653,14 +1678,14 @@ async function fetchBaseListPage(shop, { query, pageSize, cursor }) {
         productStatus,
         variantId,
         sku,
-        pricePyg: price,
-        baseUsd: baseUsdVal,
+        pricePyg: Number.isFinite(price) ? price : null,
+        baseUsd: Number.isFinite(baseUsdVal) ? baseUsdVal : null,
       });
     }
   }
 
   const nextCursor =
-    pageInfo && pageInfo.hasNextPage ? pageInfo.endCursor || null : null;
+    pageInfo && pageInfo.hasNextPage ? (pageInfo.endCursor || null) : null;
 
   return { rows, nextCursor };
 }
@@ -1891,6 +1916,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
