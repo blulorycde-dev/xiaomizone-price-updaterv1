@@ -1224,17 +1224,18 @@ params.set("round", String(ROUND_STEP));
         }
       }
 
-      if (okBase) {
-        await addLog(env, {
-          product: "(manual)",
-          variantId,
-          price_before: null,
-          price_after: newPricePYG,
-          status: applyRate && newPricePYG != null
-            ? "base_usd_manual_set+price"
-            : "base_usd_manual_set",
-          baseUsd,
-        });
+if (okBase) {
+  await addLog(env, {
+    product: "(manual)",
+    variantId,
+    price_before: null,
+    price_after: newPricePYG,
+    status: applyRate && newPricePYG != null
+      ? "base_usd_manual_set+price"
+      : "base_usd_manual_set",
+    baseUsd,
+    calc_raw: newPricePYG
+  });
 
         return cors(
           json({
@@ -1526,11 +1527,17 @@ async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive 
   const { domain, token } = shop;
   const baseUrl = `https://${domain}/admin/api/${API_VERSION}/products.json`;
 
-  const params = new URLSearchParams();
-  params.set("limit", String(pageSize));
-  if (pageInfo) params.set("page_info", pageInfo);
+ const params = new URLSearchParams();
+params.set("limit", String(pageSize));
+
+if (pageInfo) {
+  // CON page_info: NO enviar status, order ni nada extra
+  params.set("page_info", pageInfo);
+} else {
+  // Primera página: acá sí podés filtrar/ordenar
   if (onlyActive) params.set("status", "active");
   params.set("order", "title asc");
+}
 
   const url = `${baseUrl}?${params.toString()}`;
 
@@ -1881,6 +1888,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
