@@ -1010,8 +1010,14 @@ params.set("round", String(ROUND_STEP));
   </script>
 </body>
 </html>`;
-      return new Response(html, {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
+           const res = new Response(html, {
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "public, max-age=300",
+        },
+      });
+      ctx.waitUntil(cache.put(cacheKey, res.clone()));
+      return res;
       });
     }
 
@@ -1875,6 +1881,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
