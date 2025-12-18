@@ -1518,7 +1518,7 @@ async function fetchProducts(shop, { pageSize = 50, pageInfo = null, onlyActive 
   const params = new URLSearchParams();
   params.set("limit", String(pageSize));
   if (pageInfo) params.set("page_info", pageInfo);
-  if (onlyActive && !pageInfo) params.set("status", "active");
+  if (onlyActive) params.set("status", "active");
   params.set("order", "title asc");
 
   const url = `${baseUrl}?${params.toString()}`;
@@ -1870,6 +1870,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
