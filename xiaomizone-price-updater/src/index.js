@@ -1009,8 +1009,9 @@ params.set("round", String(ROUND_STEP));
     }
   </script>
 </body>
-</html>`;
-           const res = new Response(html, {
+</html>
+`;
+               const res = new Response(html, {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
           "Cache-Control": "public, max-age=300",
@@ -1018,8 +1019,6 @@ params.set("round", String(ROUND_STEP));
       });
       ctx.waitUntil(cache.put(cacheKey, res.clone()));
       return res;
-      });
-    }
 
     // ---------- START protegido con PIN (modo update precios) ----------
 
