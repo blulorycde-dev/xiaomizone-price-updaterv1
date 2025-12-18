@@ -22,7 +22,6 @@ export default {
     if (path === "/status") {
       const job = await getJob(env);
       const body = job || { running: false, msg: "no job" };
-        body.__build = "post-reconnect-test";
 
       if (job?.running || typeof job?.processedVariants === "number") {
         const eta = computeETA(job);
@@ -1502,6 +1501,7 @@ async function runBatch(env) {
     job.lastRunAt = new Date().toISOString();
     await saveJob(env, job);
   }
+  }
 
 // ============ Shopify: listado de productos (REST para el job) ============
 
@@ -1870,6 +1870,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
