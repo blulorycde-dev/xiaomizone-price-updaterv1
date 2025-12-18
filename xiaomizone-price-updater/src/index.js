@@ -1019,6 +1019,7 @@ params.set("round", String(ROUND_STEP));
       });
       ctx.waitUntil(cache.put(cacheKey, res.clone()));
       return res;
+       }
 
     // ---------- START protegido con PIN (modo update precios) ----------
 
@@ -1880,6 +1881,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
