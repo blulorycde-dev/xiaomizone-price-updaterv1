@@ -22,7 +22,7 @@ export default {
     if (path === "/status") {
       const job = await getJob(env);
       const body = job || { running: false, msg: "no job" };
-      body.__build = "fix-deploy-2025-12-17-1628";
+        body.__build = "post-reconnect-test";
 
       if (job?.running || typeof job?.processedVariants === "number") {
         const eta = computeETA(job);
@@ -1831,6 +1831,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
