@@ -1583,6 +1583,7 @@ async function fetchBaseListPage(shop, { query, pageSize, cursor }) {
           node {
             id
             title
+            status
             variants(first: 50) {
               edges {
                 node {
@@ -1647,7 +1648,9 @@ async function fetchBaseListPage(shop, { query, pageSize, cursor }) {
       const baseUsdVal = mf?.value != null ? Number(mf.value) : null;
 
       rows.push({
+        productId,
         productTitle: title,
+        productStatus,
         variantId,
         sku,
         pricePyg: price,
@@ -1888,6 +1891,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
