@@ -1411,32 +1411,6 @@ if (okBase) {
   }
 }
 
-    // fallback
-    return cors(
-      text(
-        "Usos: /admin, /start, /reset-base, /set-base-usd, /status, /cancel, /log, /log/clear, /base-list"
-      )
-    );
-  },
-
-  async scheduled(event, env, ctx) {
-    ctx.waitUntil(runBatch(env));
-  },
-};
-
-// ---------- PRODUCT: cambiar estado (active/draft/archived) ----------
-
-if (path === "/product-set-status" && (req.method === "POST" || req.method === "GET")) {
-  const pinProvided =
-    url.searchParams.get("pin") ||
-    req.headers.get("X-Admin-Pin") ||
-    "";
-  const validPin = env.ADMIN_PIN;
-  if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-  if (!pinProvided || pinProvided !== validPin) return cors(text("PIN inválido", 403));
-
-  const productId = (url.searchParams.get("productId") || "").trim();
-  const status = (url.searchParams.get("status") || "").trim();
 
   if (!productId) return cors(text("Falta productId", 400));
 
@@ -1457,7 +1431,6 @@ if (path === "/product-set-status" && (req.method === "POST" || req.method === "
     }, ok ? 200 : 500)
   );
 }
-
 async function setProductTitle_GQL(shop, productId, title) {
   const { domain, token } = shop;
   const endpoint = `https://${domain}/admin/api/${API_VERSION}/graphql.json`;
@@ -1498,8 +1471,20 @@ async function setProductTitle_GQL(shop, productId, title) {
   const errs = data?.data?.productUpdate?.userErrors || [];
   return errs.length === 0;
 }
+}
 
+    // fallback
+    return cors(
+      text(
+        "Usos: /admin, /start, /reset-base, /set-base-usd, /status, /cancel, /log, /log/clear, /base-list"
+      )
+    );
+  },
 
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runBatch(env));
+  },
+};
 
 // ============ PROCESAMIENTO POR LOTES ============
 
@@ -2094,6 +2079,7 @@ async function setProductStatus_GQL(shop, productId, status) {
   const errs = data?.data?.productUpdate?.userErrors || [];
   return errs.length === 0;
 }
+
 
 
 
