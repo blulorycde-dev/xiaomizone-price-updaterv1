@@ -1588,6 +1588,7 @@ async function fetchBaseListPage(shop, { query, pageSize, cursor }) {
           node {
             id
             title
+            handle
             status
             variants(first: 50) {
               edges {
@@ -1655,6 +1656,7 @@ async function fetchBaseListPage(shop, { query, pageSize, cursor }) {
     if (!pNode) continue;
 
     const title = pNode.title || "Sin titulo";
+    const handle = pNode?.handle || "";
     const productId = (pNode.id || "").split("/").pop() || "";
     const productStatus = String(pNode.status || "").toLowerCase(); // active/draft/archived (en minúscula)
 
@@ -1675,6 +1677,7 @@ async function fetchBaseListPage(shop, { query, pageSize, cursor }) {
       rows.push({
         productId,
         productTitle: title,
+         productHandle: handle,
         productStatus,
         variantId,
         sku,
@@ -1916,6 +1919,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
