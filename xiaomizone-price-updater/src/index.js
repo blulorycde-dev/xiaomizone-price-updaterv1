@@ -646,6 +646,37 @@ export default {
         }
       });
     }
+    
+    // ---------- PRODUCT: cambiar título ----------
+
+if (path === "/product-set-title" && (req.method === "POST" || req.method === "GET")) {
+  const pinProvided =
+    url.searchParams.get("pin") ||
+    req.headers.get("X-Admin-Pin") ||
+    "";
+  const validPin = env.ADMIN_PIN;
+  if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+  if (!pinProvided || pinProvided !== validPin) return cors(text("PIN inválido", 403));
+
+  const productId = (url.searchParams.get("productId") || "").trim();
+  const title = (url.searchParams.get("title") || "").trim();
+
+  if (!productId) return cors(text("Falta productId", 400));
+  if (!title) return cors(text("Falta title", 400));
+  if (title.length > 255) return cors(text("Title demasiado largo", 400));
+
+  const shop = getShop(env);
+  const ok = await setProductTitle_GQL(shop, productId, title);
+
+  return cors(
+    json({
+      ok,
+      message: ok ? "Nombre actualizado" : "No se pudo actualizar el nombre",
+      productId,
+      title,
+    }, ok ? 200 : 500)
+  );
+}
 
     // --------- LISTA DE PRODUCTOS (paginada) ----------
 
@@ -736,9 +767,9 @@ export default {
         return;
       }
 
-      let html = "<table>";
-      html += "<thead><tr>";
       html += "<th>Producto</th>";
+      html += "<th>Estado</th>";
+      html += "<th style='min-width:240px;'>Nombre (editar)</th>";
       html += "<th>SKU</th>";
       html += "<th class='numeric'>Precio PYG base</th>";
       html += "<th class='numeric'>Precio PYG con recargo</th>";
@@ -751,6 +782,11 @@ export default {
         const vid   = row.variantId;
         const sku   = row.sku || "";
         const title = row.productTitle || "";
+        const pid = row.productId || "";
+        const pstatus = row.productStatus || "";
+        const pid = row.productId || "";
+        const pstatus = row.productStatus || "";
+
 
         const priceShop = (row.pricePyg != null && !isNaN(row.pricePyg))
           ? Math.round(row.pricePyg)
@@ -780,36 +816,58 @@ export default {
             ? "badge badge-danger"
             : "badge";
 
-        html += "<tr data-modified='0'>";
-        html += "<td>" + escapeHtml(title) +
-          "<br><small style='color:#999;'>Var ID: " + vid + "</small></td>";
-        html += "<td>" + escapeHtml(sku) + "</td>";
+       html += "<tr data-modified='0'>";
 
-        html += "<td class='numeric'>" +
-          (priceBase != null ? priceBase.toLocaleString('es-PY') : "") +
-          "</td>";
+// Col 1: info producto (solo lectura)
+html += "<td>" + escapeHtml(title) +
+  "<br><small style='color:#999;'>Prod ID: " + escapeHtml(pid) + " · Var ID: " + escapeHtml(vid) + "</small></td>";
 
-        html += "<td class='numeric'>" +
-          (priceRecargo != null ? priceRecargo.toLocaleString('es-PY') : "") +
-          "</td>";
+// Col 2: estado
+html += "<td style='text-align:center;'>";
+html += "<select class='status-select' data-product-id='" + escapeHtml(pid) + "' style='width:140px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
+html += "<option value='active'"   + (pstatus === "active" ? " selected" : "") + ">Activo</option>";
+html += "<option value='draft'"    + (pstatus === "draft" ? " selected" : "") + ">Borrador</option>";
+html += "<option value='archived'" + (pstatus === "archived" ? " selected" : "") + ">Archivado</option>";
+html += "</select>";
+html += "</td>";
 
-        html += "<td class='numeric'>";
-        html += "<input type='number' step='0.01' style='width:100%;padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #cfd3dd;' ";
-        html += "value='" + baseStr + "' data-variant-id='" + vid + "' class='base-input-row'>";
-        html += "</td>";
+// Col 3: nombre editable
+html += "<td>";
+html += "<input type='text' class='title-input' data-product-id='" + escapeHtml(pid) + "' ";
+html += "value='" + escapeHtml(title) + "' ";
+html += "style='width:100%;min-width:240px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
+html += "</td>";
 
-        html += "<td class='numeric'>" + (tasaStr
-          ? "<span class='" + tasaClass + "'>" + tasaStr + "</span>"
-          : "") + "</td>";
+// SKU (igual que antes)
+html += "<td>" + escapeHtml(sku) + "</td>";
 
-        html += "<td style='text-align:center;'>";
-        html += "<button type='button' class='secondary btn-save-row' data-variant-id='" + vid + "' style='font-size:12px;padding:4px 10px;margin-top:0;'>Guardar</button>";
-        html += "</td>";
-        html += "</tr>";
-      }
+// Precio PYG base
+html += "<td class='numeric'>" +
+  (priceBase != null ? priceBase.toLocaleString('es-PY') : "") +
+  "</td>";
 
-      html += "</tbody></table>";
-      baseTableDiv.innerHTML = html;
+// Precio PYG con recargo
+html += "<td class='numeric'>" +
+  (priceRecargo != null ? priceRecargo.toLocaleString('es-PY') : "") +
+  "</td>";
+
+// Base USD editable
+html += "<td class='numeric'>";
+html += "<input type='number' step='0.01' style='width:100%;padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #cfd3dd;' ";
+html += "value='" + baseStr + "' data-variant-id='" + vid + "' class='base-input-row'>";
+html += "</td>";
+
+// Tasa
+html += "<td class='numeric'>" + (tasaStr
+  ? "<span class='" + tasaClass + "'>" + tasaStr + "</span>"
+  : "") + "</td>";
+
+// Acción
+html += "<td style='text-align:center;'>";
+html += "<button type='button' class='secondary btn-save-row' data-variant-id='" + vid + "' style='font-size:12px;padding:4px 10px;margin-top:0;'>Guardar</button>";
+html += "</td>";
+
+html += "</tr>";
 
       const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
       buttons.forEach(btn => {
@@ -1366,6 +1424,83 @@ if (okBase) {
   },
 };
 
+// ---------- PRODUCT: cambiar estado (active/draft/archived) ----------
+
+if (path === "/product-set-status" && (req.method === "POST" || req.method === "GET")) {
+  const pinProvided =
+    url.searchParams.get("pin") ||
+    req.headers.get("X-Admin-Pin") ||
+    "";
+  const validPin = env.ADMIN_PIN;
+  if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+  if (!pinProvided || pinProvided !== validPin) return cors(text("PIN inválido", 403));
+
+  const productId = (url.searchParams.get("productId") || "").trim();
+  const status = (url.searchParams.get("status") || "").trim();
+
+  if (!productId) return cors(text("Falta productId", 400));
+
+  const allowed = new Set(["active", "draft", "archived"]);
+  if (!allowed.has(status)) {
+    return cors(text("Status inválido. Usa: active | draft | archived", 400));
+  }
+
+  const shop = getShop(env);
+  const ok = await setProductStatus_GQL(shop, productId, status);
+
+  return cors(
+    json({
+      ok,
+      message: ok ? "Estado actualizado" : "No se pudo actualizar el estado",
+      productId,
+      status,
+    }, ok ? 200 : 500)
+  );
+}
+
+async function setProductTitle_GQL(shop, productId, title) {
+  const { domain, token } = shop;
+  const endpoint = `https://${domain}/admin/api/${API_VERSION}/graphql.json`;
+
+  const mutation = `
+    mutation productUpdate($input: ProductInput!) {
+      productUpdate(input: $input) {
+        product { id title }
+        userErrors { field message }
+      }
+    }
+  `;
+
+  const variables = {
+    input: {
+      id: `gid://shopify/Product/${productId}`,
+      title,
+    },
+  };
+
+  const r = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "X-Shopify-Access-Token": token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query: mutation, variables }),
+  });
+
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error("productUpdate title -> " + r.status + (txt ? " | " + txt.slice(0, 200) : ""));
+  }
+
+  let data;
+  try { data = await r.json(); } catch { throw new Error("Respuesta GraphQL no es JSON (productUpdate title)"); }
+
+  const errs = data?.data?.productUpdate?.userErrors || [];
+  return errs.length === 0;
+}
+
+
+
 // ============ PROCESAMIENTO POR LOTES ============
 
 async function runBatch(env) {
@@ -1919,6 +2054,47 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+async function setProductStatus_GQL(shop, productId, status) {
+  const { domain, token } = shop;
+  const endpoint = `https://${domain}/admin/api/${API_VERSION}/graphql.json`;
+
+  const mutation = `
+    mutation productUpdate($input: ProductInput!) {
+      productUpdate(input: $input) {
+        product { id status }
+        userErrors { field message }
+      }
+    }
+  `;
+
+  const variables = {
+    input: {
+      id: `gid://shopify/Product/${productId}`,
+      status,
+    },
+  };
+
+  const r = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "X-Shopify-Access-Token": token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query: mutation, variables }),
+  });
+
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error("productUpdate status -> " + r.status + (txt ? " | " + txt.slice(0, 200) : ""));
+  }
+
+  let data;
+  try { data = await r.json(); } catch { throw new Error("Respuesta GraphQL no es JSON (productUpdate)"); }
+
+  const errs = data?.data?.productUpdate?.userErrors || [];
+  return errs.length === 0;
+}
+
 
 
 
