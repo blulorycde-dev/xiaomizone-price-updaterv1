@@ -16,6 +16,46 @@ export default {
     if (req.method === "OPTIONS") {
       return cors(new Response(null));
     }
+async function setProductStatus_GQL(shop, productId, status) {
+  const { domain, token } = shop;
+  const endpoint = `https://${domain}/admin/api/${API_VERSION}/graphql.json`;
+
+  const mutation = `
+    mutation productUpdate($input: ProductInput!) {
+      productUpdate(input: $input) {
+        product { id status }
+        userErrors { field message }
+      }
+    }
+  `;
+
+  const variables = {
+    input: {
+      id: `gid://shopify/Product/${productId}`,
+      status,
+    },
+  };
+
+  const r = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "X-Shopify-Access-Token": token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query: mutation, variables }),
+  });
+
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error("productUpdate status -> " + r.status + (txt ? " | " + txt.slice(0, 200) : ""));
+  }
+
+  let data;
+  try { data = await r.json(); } catch { throw new Error("Respuesta GraphQL no es JSON (productUpdate)"); }
+
+  const errs = data?.data?.productUpdate?.userErrors || [];
+  return errs.length === 0;
+}
 
     // ---------- STATUS ----------
 
@@ -1411,6 +1451,15 @@ if (okBase) {
   }
 }
 
+// ---------- PRODUCT: set status ----------
+if (path === "/product/set-status" && req.method === "GET") {
+  const pinProvided = url.searchParams.get("pin") || "";
+  const validPin = env.ADMIN_PIN;
+  if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+  if (!pinProvided || pinProvided !== validPin) return cors(text("PIN inválido", 403));
+
+  const productId = url.searchParams.get("productId") || "";
+  const status = (url.searchParams.get("status") || "").trim();
 
   if (!productId) return cors(text("Falta productId", 400));
 
@@ -1423,62 +1472,50 @@ if (okBase) {
   const ok = await setProductStatus_GQL(shop, productId, status);
 
   return cors(
-    json({
-      ok,
-      message: ok ? "Estado actualizado" : "No se pudo actualizar el estado",
-      productId,
-      status,
-    }, ok ? 200 : 500)
+    json(
+      {
+        ok,
+        message: ok ? "Estado actualizado" : "No se pudo actualizar el estado",
+        productId,
+        status,
+      },
+      ok ? 200 : 500
+    )
   );
 }
-async function setProductTitle_GQL(shop, productId, title) {
-  const { domain, token } = shop;
-  const endpoint = `https://${domain}/admin/api/${API_VERSION}/graphql.json`;
+// ---------- PRODUCT: set title ----------
+if (path === "/product/set-title" && req.method === "GET") {
+  const pinProvided = url.searchParams.get("pin") || "";
+  const validPin = env.ADMIN_PIN;
+  if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+  if (!pinProvided || pinProvided !== validPin) return cors(text("PIN inválido", 403));
 
-  const mutation = `
-    mutation productUpdate($input: ProductInput!) {
-      productUpdate(input: $input) {
-        product { id title }
-        userErrors { field message }
-      }
-    }
-  `;
+  const productId = url.searchParams.get("productId") || "";
+  const title = (url.searchParams.get("title") || "").trim();
 
-  const variables = {
-    input: {
-      id: `gid://shopify/Product/${productId}`,
-      title,
-    },
-  };
+  if (!productId) return cors(text("Falta productId", 400));
+  if (!title) return cors(text("Falta title", 400));
 
-  const r = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "X-Shopify-Access-Token": token,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query: mutation, variables }),
-  });
+  const shop = getShop(env);
+  const ok = await setProductTitle_GQL(shop, productId, title);
 
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error("productUpdate title -> " + r.status + (txt ? " | " + txt.slice(0, 200) : ""));
-  }
-
-  let data;
-  try { data = await r.json(); } catch { throw new Error("Respuesta GraphQL no es JSON (productUpdate title)"); }
-
-  const errs = data?.data?.productUpdate?.userErrors || [];
-  return errs.length === 0;
-}
+  return cors(
+    json(
+      {
+        ok,
+        message: ok ? "Nombre actualizado" : "No se pudo actualizar el nombre",
+        productId,
+        title,
+      },
+      ok ? 200 : 500
+    )
+  );
 }
 
-    // fallback
-    return cors(
-      text(
-        "Usos: /admin, /start, /reset-base, /set-base-usd, /status, /cancel, /log, /log/clear, /base-list"
-      )
-    );
+  // fallback
+return cors(
+  text("Usos: /admin, /start, /reset-base, /set-base-usd, /status, /cancel, /log, /log/clear, /base-list, /product/set-status, /product/set-title")
+);
   },
 
   async scheduled(event, env, ctx) {
@@ -2039,50 +2076,6 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-async function setProductStatus_GQL(shop, productId, status) {
-  const { domain, token } = shop;
-  const endpoint = `https://${domain}/admin/api/${API_VERSION}/graphql.json`;
-
-  const mutation = `
-    mutation productUpdate($input: ProductInput!) {
-      productUpdate(input: $input) {
-        product { id status }
-        userErrors { field message }
-      }
-    }
-  `;
-
-  const variables = {
-    input: {
-      id: `gid://shopify/Product/${productId}`,
-      status,
-    },
-  };
-
-  const r = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "X-Shopify-Access-Token": token,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ query: mutation, variables }),
-  });
-
-  if (!r.ok) {
-    const txt = await r.text().catch(() => "");
-    throw new Error("productUpdate status -> " + r.status + (txt ? " | " + txt.slice(0, 200) : ""));
-  }
-
-  let data;
-  try { data = await r.json(); } catch { throw new Error("Respuesta GraphQL no es JSON (productUpdate)"); }
-
-  const errs = data?.data?.productUpdate?.userErrors || [];
-  return errs.length === 0;
-}
-
-
-
-
 
 
 
