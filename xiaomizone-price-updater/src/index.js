@@ -56,6 +56,39 @@ async function setProductStatus_GQL(shop, productId, status) {
   const errs = data?.data?.productUpdate?.userErrors || [];
   return errs.length === 0;
 }
+    
+    // ---------- PRODUCT: cambiar título ----------
+if (path === "/product-set-title" && (req.method === "POST" || req.method === "GET")) {
+  const pinProvided =
+    url.searchParams.get("pin") ||
+    req.headers.get("X-Admin-Pin") ||
+    "";
+  const validPin = env.ADMIN_PIN;
+  if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
+  if (!pinProvided || pinProvided !== validPin) return cors(text("PIN inválido", 403));
+
+  const productId = (url.searchParams.get("productId") || "").trim();
+  const title = (url.searchParams.get("title") || "").trim();
+
+  if (!productId) return cors(text("Falta productId", 400));
+  if (!title) return cors(text("Falta title", 400));
+  if (title.length > 255) return cors(text("Title demasiado largo", 400));
+
+  const shop = getShop(env);
+  const ok = await setProductTitle_GQL(shop, productId, title);
+
+  return cors(
+    json(
+      {
+        ok,
+        message: ok ? "Nombre actualizado" : "No se pudo actualizar el nombre",
+        productId,
+        title,
+      },
+      ok ? 200 : 500
+    )
+  );
+}
 
     // ---------- STATUS ----------
 
@@ -686,37 +719,6 @@ async function setProductStatus_GQL(shop, productId, status) {
         }
       });
     }
-    
-    // ---------- PRODUCT: cambiar título ----------
-
-if (path === "/product-set-title" && (req.method === "POST" || req.method === "GET")) {
-  const pinProvided =
-    url.searchParams.get("pin") ||
-    req.headers.get("X-Admin-Pin") ||
-    "";
-  const validPin = env.ADMIN_PIN;
-  if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-  if (!pinProvided || pinProvided !== validPin) return cors(text("PIN inválido", 403));
-
-  const productId = (url.searchParams.get("productId") || "").trim();
-  const title = (url.searchParams.get("title") || "").trim();
-
-  if (!productId) return cors(text("Falta productId", 400));
-  if (!title) return cors(text("Falta title", 400));
-  if (title.length > 255) return cors(text("Title demasiado largo", 400));
-
-  const shop = getShop(env);
-  const ok = await setProductTitle_GQL(shop, productId, title);
-
-  return cors(
-    json({
-      ok,
-      message: ok ? "Nombre actualizado" : "No se pudo actualizar el nombre",
-      productId,
-      title,
-    }, ok ? 200 : 500)
-  );
-}
 
     // --------- LISTA DE PRODUCTOS (paginada) ----------
 
@@ -800,190 +802,189 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
     }
 
     function renderBaseTable(rows) {
-      if (!baseTableDiv) return;
+  if (!baseTableDiv) return;
 
-      if (!rows.length) {
-        baseTableDiv.innerHTML = "<div style='padding:10px;font-size:13px;color:#777;'>No se encontraron variantes para esta búsqueda.</div>";
-        return;
-      }
+  if (!rows.length) {
+    baseTableDiv.innerHTML = "<div style='padding:10px;font-size:13px;color:#777;'>No se encontraron variantes para esta búsqueda.</div>";
+    return;
+  }
 
-      html += "<th>Producto</th>";
-      html += "<th>Estado</th>";
-      html += "<th style='min-width:240px;'>Nombre (editar)</th>";
-      html += "<th>SKU</th>";
-      html += "<th class='numeric'>Precio PYG base</th>";
-      html += "<th class='numeric'>Precio PYG con recargo</th>";
-      html += "<th class='numeric'>Base USD</th>";
-      html += "<th class='numeric'>Tasa estimada</th>";
-      html += "<th style='text-align:center;'>Acción</th>";
-      html += "</tr></thead><tbody>";
+  let html = "";
+  html += "<table><thead><tr>";
+  html += "<th>Producto</th>";
+  html += "<th>Estado</th>";
+  html += "<th style='min-width:240px;'>Nombre (editar)</th>";
+  html += "<th>SKU</th>";
+  html += "<th class='numeric'>Precio PYG base</th>";
+  html += "<th class='numeric'>Precio PYG con recargo</th>";
+  html += "<th class='numeric'>Base USD</th>";
+  html += "<th class='numeric'>Tasa estimada</th>";
+  html += "<th style='text-align:center;'>Acción</th>";
+  html += "</tr></thead><tbody>";
 
-      for (const row of rows) {
-        const vid   = row.variantId;
-        const sku   = row.sku || "";
-        const title = row.productTitle || "";
-        const pid = row.productId || "";
-        const pstatus = row.productStatus || "";
-        const pid = row.productId || "";
-        const pstatus = row.productStatus || "";
+  for (const row of rows) {
+    const vid     = row.variantId || "";
+    const sku     = row.sku || "";
+    const title   = row.productTitle || "";
+    const pid     = row.productId || "";
+    const pstatus = row.productStatus || "active";
 
+    const priceShop = (row.pricePyg != null && !isNaN(row.pricePyg))
+      ? Math.round(row.pricePyg)
+      : null;
 
-        const priceShop = (row.pricePyg != null && !isNaN(row.pricePyg))
-          ? Math.round(row.pricePyg)
-          : null;
+    const base = (row.baseUsd != null && !isNaN(row.baseUsd))
+      ? Number(row.baseUsd)
+      : null;
 
-        const base = (row.baseUsd != null && !isNaN(row.baseUsd))
-          ? Number(row.baseUsd)
-          : null;
+    const priceBase = (base != null)
+      ? roundToClient(base * FIXED_RATE, ROUND_STEP)
+      : null;
 
-        const priceBase = (base != null)
-          ? roundToClient(base * FIXED_RATE, ROUND_STEP)
-          : null;
+    const priceRecargo = (base != null)
+      ? roundToClient(base * FIXED_RATE * FIXED_MARGIN, ROUND_STEP)
+      : null;
 
-        const priceRecargo = (base != null)
-          ? roundToClient(base * FIXED_RATE * FIXED_MARGIN, ROUND_STEP)
-          : null;
+    const tasa = (priceShop != null && base != null && base > 0)
+      ? (priceShop / base)
+      : null;
 
-        const tasa = (priceShop != null && base != null && base > 0)
-          ? (priceShop / base)
-          : null;
+    const baseStr = base != null ? base.toFixed(2) : "";
+    const tasaStr = tasa != null ? tasa.toFixed(2) : "";
 
-        const baseStr = base != null ? base.toFixed(2) : "";
-        const tasaStr = tasa != null ? tasa.toFixed(2) : "";
+    const tasaClass =
+      tasa != null && (tasa < 5000 || tasa > 15000)
+        ? "badge badge-danger"
+        : "badge";
 
-        const tasaClass =
-          tasa != null && (tasa < 5000 || tasa > 15000)
+    html += "<tr data-modified='0'>";
+
+    // Col 1: info producto
+    html += "<td>" + escapeHtml(title) +
+      "<br><small style='color:#999;'>Prod ID: " + escapeHtml(pid) + " · Var ID: " + escapeHtml(vid) + "</small></td>";
+
+    // Col 2: estado
+    html += "<td style='text-align:center;'>";
+    html += "<select class='status-select' data-product-id='" + escapeHtml(pid) + "' style='width:140px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
+    html += "<option value='active'"   + (pstatus === "active" ? " selected" : "") + ">Activo</option>";
+    html += "<option value='draft'"    + (pstatus === "draft" ? " selected" : "") + ">Borrador</option>";
+    html += "<option value='archived'" + (pstatus === "archived" ? " selected" : "") + ">Archivado</option>";
+    html += "</select>";
+    html += "</td>";
+
+    // Col 3: nombre editable
+    html += "<td>";
+    html += "<input type='text' class='title-input' data-product-id='" + escapeHtml(pid) + "' ";
+    html += "value='" + escapeHtml(title) + "' ";
+    html += "style='width:100%;min-width:240px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
+    html += "</td>";
+
+    // SKU
+    html += "<td>" + escapeHtml(sku) + "</td>";
+
+    // Precio base
+    html += "<td class='numeric'>" + (priceBase != null ? priceBase.toLocaleString('es-PY') : "") + "</td>";
+
+    // Precio con recargo
+    html += "<td class='numeric'>" + (priceRecargo != null ? priceRecargo.toLocaleString('es-PY') : "") + "</td>";
+
+    // Base USD
+    html += "<td class='numeric'>";
+    html += "<input type='number' step='0.01' style='width:100%;padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #cfd3dd;' ";
+    html += "value='" + baseStr + "' data-variant-id='" + escapeHtml(vid) + "' class='base-input-row'>";
+    html += "</td>";
+
+    // Tasa
+    html += "<td class='numeric'>" + (tasaStr ? "<span class='" + tasaClass + "'>" + tasaStr + "</span>" : "") + "</td>";
+
+    // Acción
+    html += "<td style='text-align:center;'>";
+    html += "<button type='button' class='secondary btn-save-row' data-variant-id='" + escapeHtml(vid) + "' style='font-size:12px;padding:4px 10px;margin-top:0;'>Guardar</button>";
+    html += "</td>";
+
+    html += "</tr>";
+  }
+
+  html += "</tbody></table>";
+  baseTableDiv.innerHTML = html;
+
+const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
+buttons.forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const pin = getPinOrAlert();
+    if (!pin) return;
+
+    const vid = btn.getAttribute("data-variant-id");
+    const input = baseTableDiv.querySelector(
+      "input.base-input-row[data-variant-id='" + vid + "']"
+    );
+    if (!input) { alert("No se encontró el input"); return; }
+
+    const val = input.value.trim();
+    if (!val || isNaN(val)) { alert("Base USD inválido"); return; }
+
+    const params = new URLSearchParams();
+    params.set("pin", pin);
+    params.set("variantId", vid);
+    params.set("baseUsd", val);
+    params.set("applyRate", "1");
+    params.set("rate", String(FIXED_RATE));
+    params.set("margin", String(FIXED_MARGIN));
+    params.set("round", String(ROUND_STEP));
+
+    try {
+      const r = await fetch("/set-base-usd?" + params.toString());
+      const j = await r.json();
+
+      alert(j.message || "OK");
+
+      if (j.ok) {
+        const tr = btn.closest("tr");
+        if (!tr) return;
+
+        const cells = tr.querySelectorAll("td");
+
+        // 🔢 columnas CORRECTAS
+        // 0 Producto
+        // 1 Estado
+        // 2 Nombre
+        // 3 SKU
+        // 4 Precio base
+        // 5 Precio recargo
+        // 6 Base USD
+        // 7 Tasa
+
+        const baseNum = parseFloat(val);
+        const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
+        const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
+
+        if (cells[4]) cells[4].textContent = pb.toLocaleString("es-PY");
+        if (cells[5]) cells[5].textContent = pr.toLocaleString("es-PY");
+
+        const tasa = pr / baseNum;
+        if (cells[7]) {
+          const cls = (tasa < 5000 || tasa > 15000)
             ? "badge badge-danger"
             : "badge";
+          cells[7].innerHTML = "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
+        }
 
-       html += "<tr data-modified='0'>";
-
-// Col 1: info producto (solo lectura)
-html += "<td>" + escapeHtml(title) +
-  "<br><small style='color:#999;'>Prod ID: " + escapeHtml(pid) + " · Var ID: " + escapeHtml(vid) + "</small></td>";
-
-// Col 2: estado
-html += "<td style='text-align:center;'>";
-html += "<select class='status-select' data-product-id='" + escapeHtml(pid) + "' style='width:140px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
-html += "<option value='active'"   + (pstatus === "active" ? " selected" : "") + ">Activo</option>";
-html += "<option value='draft'"    + (pstatus === "draft" ? " selected" : "") + ">Borrador</option>";
-html += "<option value='archived'" + (pstatus === "archived" ? " selected" : "") + ">Archivado</option>";
-html += "</select>";
-html += "</td>";
-
-// Col 3: nombre editable
-html += "<td>";
-html += "<input type='text' class='title-input' data-product-id='" + escapeHtml(pid) + "' ";
-html += "value='" + escapeHtml(title) + "' ";
-html += "style='width:100%;min-width:240px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
-html += "</td>";
-
-// SKU (igual que antes)
-html += "<td>" + escapeHtml(sku) + "</td>";
-
-// Precio PYG base
-html += "<td class='numeric'>" +
-  (priceBase != null ? priceBase.toLocaleString('es-PY') : "") +
-  "</td>";
-
-// Precio PYG con recargo
-html += "<td class='numeric'>" +
-  (priceRecargo != null ? priceRecargo.toLocaleString('es-PY') : "") +
-  "</td>";
-
-// Base USD editable
-html += "<td class='numeric'>";
-html += "<input type='number' step='0.01' style='width:100%;padding:4px 6px;font-size:12px;border-radius:4px;border:1px solid #cfd3dd;' ";
-html += "value='" + baseStr + "' data-variant-id='" + vid + "' class='base-input-row'>";
-html += "</td>";
-
-// Tasa
-html += "<td class='numeric'>" + (tasaStr
-  ? "<span class='" + tasaClass + "'>" + tasaStr + "</span>"
-  : "") + "</td>";
-
-// Acción
-html += "<td style='text-align:center;'>";
-html += "<button type='button' class='secondary btn-save-row' data-variant-id='" + vid + "' style='font-size:12px;padding:4px 10px;margin-top:0;'>Guardar</button>";
-html += "</td>";
-
-html += "</tr>";
-
-      const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
-      buttons.forEach(btn => {
-        btn.addEventListener("click", async () => {
-          const pin = getPinOrAlert();
-          if (!pin) return;
-          const vid = btn.getAttribute("data-variant-id");
-          const input = baseTableDiv.querySelector("input.base-input-row[data-variant-id='" + vid + "']");
-          if (!input) { alert("No se encontró el input para esa fila"); return; }
-          const val = input.value.trim();
-          if (!val) { alert("Ingresá un Base USD válido"); return; }
-
-          const params = new URLSearchParams();
-          params.set("pin", pin);
-          params.set("variantId", vid);
-          params.set("baseUsd", val);
-          params.set("applyRate", "1");
-          params.set("rate", String(FIXED_RATE));
-params.set("margin", String(FIXED_MARGIN));
-params.set("round", String(ROUND_STEP));
-
-
-          try {
-            const r = await fetch("/set-base-usd?" + params.toString());
-            const txt = await r.text();
-            let j;
-            try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-            alert(j.message || JSON.stringify(j));
-
-            if (j.ok) {
-              const tr = btn.closest("tr");
-              if (tr) {
-                const cells = tr.querySelectorAll("td");
-
-                const baseNum = parseFloat(val.replace(",", "."));
-                if (baseNum && isFinite(baseNum) && baseNum > 0) {
-                  const priceBase = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
-                  const priceRecargo = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
-
-                  const cellBase    = cells[2];
-                  const cellRecargo = cells[3];
-                  if (cellBase) {
-                    cellBase.textContent = priceBase.toLocaleString("es-PY");
-                  }
-                  if (cellRecargo) {
-                    cellRecargo.textContent = priceRecargo.toLocaleString("es-PY");
-                  }
-
-                  if (typeof j.newPricePYG === "number") {
-                    const newPrice = j.newPricePYG;
-                    const tasa = newPrice / baseNum;
-                    const tasaCell = cells[5];
-                    if (tasaCell) {
-                      const cls = (tasa < 5000 || tasa > 10000)
-                        ? "badge badge-danger"
-                        : "badge";
-                      tasaCell.innerHTML =
-                        "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
-                    }
-                  }
-                }
-
-                input.classList.add("modified");
-                tr.classList.add("row-modified");
-                tr.setAttribute("data-modified", "1");
-                applyModifiedFilter();
-              }
-            }
-          } catch (err) {
-            alert("Error guardando Base USD: " + err);
-          }
-        });
-      });
+        input.classList.add("modified");
+        tr.classList.add("row-modified");
+        tr.setAttribute("data-modified", "1");
+        applyModifiedFilter();
+      }
+    } catch (e) {
+      alert("Error: " + e.message);
     }
+  });
+});
 
-    function applyModifiedFilter() {
+
+  applyModifiedFilter();
+}
+
+     function applyModifiedFilter() {
       if (!toggleModified || !baseTableDiv.querySelector("table")) return;
       const onlyMod = toggleModified.checked;
       const rows = baseTableDiv.querySelectorAll("tbody tr");
@@ -2076,6 +2077,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
