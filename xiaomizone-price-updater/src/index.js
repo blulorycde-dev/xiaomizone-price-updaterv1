@@ -811,10 +811,9 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
 
   let html = "";
   html += "<table><thead><tr>";
-  html += "<th>Producto</th>";
-  html += "<th>Estado</th>";
-  html += "<th style='min-width:240px;'>Nombre (editar)</th>";
-  html += "<th>SKU</th>";
+html += "<th>Producto</th>";
+html += "<th>Estado</th>";
+html += "<th>SKU</th>";
   html += "<th class='numeric'>Precio PYG base</th>";
   html += "<th class='numeric'>Precio PYG con recargo</th>";
   html += "<th class='numeric'>Base USD</th>";
@@ -859,9 +858,13 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
 
     html += "<tr data-modified='0'>";
 
-    // Col 1: info producto
-    html += "<td>" + escapeHtml(title) +
-      "<br><small style='color:#999;'>Prod ID: " + escapeHtml(pid) + " · Var ID: " + escapeHtml(vid) + "</small></td>";
+   // Col 1: producto (título editable + IDs)
+html += "<td>";
+html += "<input type='text' class='title-input' data-product-id='" + escapeHtml(pid) + "' ";
+html += "value='" + escapeHtml(title) + "' ";
+html += "style='width:100%;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
+html += "<br><small style='color:#999;'>Prod ID: " + escapeHtml(pid) + " · Var ID: " + escapeHtml(vid) + "</small>";
+html += "</td>";
 
     // Col 2: estado
     html += "<td style='text-align:center;'>";
@@ -870,13 +873,6 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
     html += "<option value='draft'"    + (pstatus === "draft" ? " selected" : "") + ">Borrador</option>";
     html += "<option value='archived'" + (pstatus === "archived" ? " selected" : "") + ">Archivado</option>";
     html += "</select>";
-    html += "</td>";
-
-    // Col 3: nombre editable
-    html += "<td>";
-    html += "<input type='text' class='title-input' data-product-id='" + escapeHtml(pid) + "' ";
-    html += "value='" + escapeHtml(title) + "' ";
-    html += "style='width:100%;min-width:240px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
     html += "</td>";
 
     // SKU
@@ -906,7 +902,59 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
   }
 
   html += "</tbody></table>";
+  
   baseTableDiv.innerHTML = html;
+
+  // Guardar NOMBRE con Enter (columna Producto)
+const titleInputs = baseTableDiv.querySelectorAll(".title-input");
+titleInputs.forEach(inp => {
+  inp.addEventListener("keydown", async (ev) => {
+    if (ev.key !== "Enter") return;
+    ev.preventDefault();
+
+    const pin = getPinOrAlert();
+    if (!pin) return;
+
+    const productId = inp.getAttribute("data-product-id");
+    const title = (inp.value || "").trim();
+
+    if (!productId) { alert("Falta productId"); return; }
+    if (!title) { alert("El nombre no puede estar vacío"); return; }
+
+    inp.disabled = true;
+
+    try {
+      const params = new URLSearchParams();
+      params.set("pin", pin);
+      params.set("productId", productId);
+      params.set("title", title);
+
+      const r = await fetch("/product/set-title?" + params.toString());
+      const txt = await r.text();
+      let j;
+      try { j = JSON.parse(txt); } catch { j = { ok:false, message: txt }; }
+
+      if (!j.ok) {
+        alert(j.message || "No se pudo actualizar el nombre");
+        return;
+      }
+
+      // marcar fila
+      const tr = inp.closest("tr");
+      if (tr) {
+        tr.classList.add("row-modified");
+        tr.setAttribute("data-modified", "1");
+        applyModifiedFilter();
+      }
+
+    } catch (err) {
+      alert("Error actualizando nombre: " + err);
+    } finally {
+      inp.disabled = false;
+      inp.blur();
+    }
+  });
+});
 
 const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
 buttons.forEach(btn => {
@@ -942,47 +990,37 @@ buttons.forEach(btn => {
         const tr = btn.closest("tr");
         if (!tr) return;
 
-        const cells = tr.querySelectorAll("td");
+    const cells = tr.querySelectorAll("td");
 
-        // 🔢 columnas CORRECTAS
-        // 0 Producto
-        // 1 Estado
-        // 2 Nombre
-        // 3 SKU
-        // 4 Precio base
-        // 5 Precio recargo
-        // 6 Base USD
-        // 7 Tasa
+// 0 Producto
+// 1 Estado
+// 2 SKU
+// 3 Precio base
+// 4 Precio recargo
+// 5 Base USD
+// 6 Tasa
+// 7 Acción
 
-        const baseNum = parseFloat(val);
-        const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
-        const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
+const baseNum = parseFloat(String(val).replace(",", "."));
+if (!Number.isFinite(baseNum) || baseNum <= 0) { alert("Base USD inválido"); return; }
 
-        if (cells[4]) cells[4].textContent = pb.toLocaleString("es-PY");
-        if (cells[5]) cells[5].textContent = pr.toLocaleString("es-PY");
+const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
+const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
 
-        const tasa = pr / baseNum;
-        if (cells[7]) {
-          const cls = (tasa < 5000 || tasa > 15000)
-            ? "badge badge-danger"
-            : "badge";
-          cells[7].innerHTML = "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
-        }
+if (cells[3]) cells[3].textContent = pb.toLocaleString("es-PY");
+if (cells[4]) cells[4].textContent = pr.toLocaleString("es-PY");
 
-        input.classList.add("modified");
-        tr.classList.add("row-modified");
-        tr.setAttribute("data-modified", "1");
-        applyModifiedFilter();
-      }
-    } catch (e) {
-      alert("Error: " + e.message);
-    }
-  });
-});
-
-
-  applyModifiedFilter();
+const tasa = pr / baseNum;
+if (cells[6]) {
+  const cls = (tasa < 5000 || tasa > 15000) ? "badge badge-danger" : "badge";
+  cells[6].innerHTML = "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
 }
+
+input.classList.add("modified");
+tr.classList.add("row-modified");
+tr.setAttribute("data-modified", "1");
+applyModifiedFilter();
+
 
      function applyModifiedFilter() {
       if (!toggleModified || !baseTableDiv.querySelector("table")) return;
@@ -2077,6 +2115,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
