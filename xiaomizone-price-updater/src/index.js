@@ -789,6 +789,7 @@ function showTextModal(title, text) {
 function showApiResult(title, txt, okHumanMsg) {
   const t = String(txt || "");
 
+  // Detectar HTML (errores Cloudflare / páginas completas)
   const seemsHtml =
     t.includes("<!DOCTYPE html") ||
     t.includes("<html") ||
@@ -806,6 +807,7 @@ function showApiResult(title, txt, okHumanMsg) {
     return null;
   }
 
+  // Intentar JSON
   try {
     const j = JSON.parse(t);
 
@@ -821,10 +823,12 @@ function showApiResult(title, txt, okHumanMsg) {
 
     return j;
   } catch (_) {
+    // Texto plano
     showTextModal(title || "Resultado", t);
     return null;
   }
 }
+
 
     // --------- UPDATE ----------
 
@@ -849,7 +853,7 @@ function showApiResult(title, txt, okHumanMsg) {
   j.message || JSON.stringify(j, null, 2)
 );
         } catch (err) {
-          showTextModal("Error llamando al worker: " + err);
+         showTextModal("Error", "Error llamando al worker: " + err);
         }
       });
     }
@@ -918,7 +922,7 @@ function showApiResult(title, txt, okHumanMsg) {
         try {
           const r = await fetch("/status");
           const txt = await r.text();
-         openTextModal("Estado del job", txt);
+        showTextModal("Estado del job", txt);
         } catch (err) {
           showTextModal("Error consultando status: " + err);
         }
@@ -969,9 +973,9 @@ function showApiResult(title, txt, okHumanMsg) {
     if (btnMoreBase) {
       btnMoreBase.addEventListener("click", () => {
         if (!baseCursor) {
-          alert("No hay más productos para cargar.");
-          return;
-        }
+  showTextModal("Info", "No hay más productos para cargar.");
+  return;
+}
         loadBase(false);
       });
     }
@@ -1179,8 +1183,7 @@ if (!j || !j.ok) return;
         applyModifiedFilter();
       }
     } catch (err) {
-        showTextModal
-("Error actualizando nombre: " + err);
+       showTextModal("Error", "Error actualizando nombre: " + err);
     } finally {
       inp.disabled = false;
       inp.blur();
@@ -1381,8 +1384,7 @@ function escapeHtml(str) {
 
           logList.innerHTML = html;
         } catch (err) {
-            showTextModal
-("Error cargando historial: " + err);
+            showTextModal("Error", "Error cargando historial: " + err);
         }
       });
     }
@@ -2357,6 +2359,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
