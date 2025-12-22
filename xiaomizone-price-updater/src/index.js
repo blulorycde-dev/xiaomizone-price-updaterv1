@@ -399,13 +399,14 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
       border-color:#009929;
       background: rgba(92, 203, 95, 0.28);
     }
-    /* Select Estado compacto */
+   /* Select Estado compacto (forzado contra inline) */
 .status-select {
-  width: auto;
+  width: auto !important;
   min-width: 70px;
   max-width: 90px;
-  padding-right: 18px; /* espacio justo para la flecha */
+  padding-right: 18px;
 }
+
 
   </style>
 </head>
@@ -2261,6 +2262,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
