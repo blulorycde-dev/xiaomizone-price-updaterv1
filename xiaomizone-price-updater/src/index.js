@@ -746,22 +746,21 @@ function showTextModal(title, text) {
 
     function doClose() {
       overlay.style.display = "none";
-      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("keydown", overlay._onKey);
     }
+
     function onKey(ev) {
       if (ev.key === "Escape") doClose();
     }
+
+    overlay._onKey = onKey;
 
     close.addEventListener("click", doClose);
     overlay.addEventListener("click", (ev) => {
       if (ev.target === overlay) doClose();
     });
 
-    // guardamos handler en overlay para poder setearlo al abrir
-    overlay._onKey = onKey;
-
     actions.appendChild(copyBtn);
-    actions.appendChild(close);
 
     header.appendChild(h);
     header.appendChild(close);
@@ -784,6 +783,47 @@ function showTextModal(title, text) {
   ta.select();
 
   document.addEventListener("keydown", overlay._onKey);
+}
+
+// ===== Helper para mostrar respuestas (JSON o HTML) usando el modal =====
+function showApiResult(title, txt, okHumanMsg) {
+  const t = String(txt || "");
+
+  const seemsHtml =
+    t.includes("<!DOCTYPE html") ||
+    t.includes("<html") ||
+    t.includes("cf-error") ||
+    t.includes("Worker threw exception") ||
+    t.includes("Error 1101");
+
+  if (seemsHtml) {
+    showTextModal(
+      title || "Error",
+      "Error interno del Worker (Cloudflare 1101 / excepción).\n" +
+      "Abrí Workers Logs y buscá el Ray ID.\n\n" +
+      "Detalle técnico (HTML):\n\n" + t
+    );
+    return null;
+  }
+
+  try {
+    const j = JSON.parse(t);
+
+    const human =
+      (j && j.message) ? String(j.message) :
+      (j && j.ok === true) ? (okHumanMsg || "Operación exitosa.") :
+      "Ocurrió un error.";
+
+    showTextModal(
+      title || "Resultado",
+      human + "\n\nDetalle:\n" + JSON.stringify(j, null, 2)
+    );
+
+    return j;
+  } catch (_) {
+    showTextModal(title || "Resultado", t);
+    return null;
+  }
 }
 
     // --------- UPDATE ----------
@@ -1120,17 +1160,17 @@ ev.preventDefault();
       params.set("productId", productId);
       params.set("title", title);
 
-      const r = await fetch("/product/set-title?" + params.toString());
-      const txt = await r.text();
-      let j;
-      try { j = JSON.parse(txt); } catch { j = { ok:false, message: txt }; }
+     const r = await fetch("/product/set-title?" + params.toString());
+const txt = await r.text();
 
-      if (!j.ok) {
-        showTextModal(
-  "Resultado",
-  j.message || "No se pudo actualizar el nombre");
-        return;
-      }
+const j = showApiResult(
+  "Nombre de producto",
+  txt,
+  "Nombre cambiado."
+);
+
+if (!j || !j.ok) return;
+
 
       const tr = inp.closest("tr");
       if (tr) {
@@ -1174,20 +1214,20 @@ buttons.forEach((btn) => {
     params.set("margin", String(FIXED_MARGIN));
     params.set("round", String(ROUND_STEP));
 
-    try {
-      const r = await fetch("/set-base-usd?" + params.toString());
-      const txt = await r.text();
-      let j;
-      try { j = JSON.parse(txt); } catch { j = { ok:false, message: txt }; }
+  try {
+  const r = await fetch("/set-base-usd?" + params.toString());
+  const txt = await r.text();
 
-      showTextModal(
-  "Resultado",
-  j.message || "OK"
-);
+  const j = showApiResult(
+    "Base USD",
+    txt,
+    "Base USD guardado y precio actualizado."
+  );
 
-      if (j.ok) {
-        const tr = btn.closest("tr");
-        if (!tr) return;
+  if (j && j.ok) {
+    const tr = btn.closest("tr");
+    if (!tr) return;
+
 
         const cells = tr.querySelectorAll("td");
         // 0 Producto
@@ -2317,6 +2357,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
