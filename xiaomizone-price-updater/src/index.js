@@ -631,10 +631,10 @@ function showTextModal(title, text) {
   if (!overlay) {
     overlay = document.createElement("div");
     overlay.id = "text-modal-overlay";
-    overlay.style.cssText = `
-      position:fixed; inset:0; background:rgba(0,0,0,.45);
-      display:flex; align-items:center; justify-content:center;
-      padding:16px; z-index:9999;
+    overlay.style.cssText =
+  "position:fixed; inset:0; background:rgba(0,0,0,.45);" +
+  "display:flex; align-items:center; justify-content:center;" +
+  "padding:16px; z-index:9999;";
     `;
     overlay.innerHTML = `
       <div style="width:min(900px,95vw); background:#fff; border-radius:12px; border:1px solid #e2e4ea; box-shadow:0 10px 30px rgba(0,0,0,.18); overflow:hidden;">
@@ -2191,6 +2191,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
