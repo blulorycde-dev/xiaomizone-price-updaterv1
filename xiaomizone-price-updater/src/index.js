@@ -265,9 +265,12 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
 #base-table th:nth-child(1),
 #base-table td:nth-child(1) { width: 330px; }
 
-/* Estado más angosta */
+/* Estado bien compacto */
 #base-table th:nth-child(2),
-#base-table td:nth-child(2) { width: 120px; }
+#base-table td:nth-child(2) {
+  width: 90px;
+  text-align: left;
+}
 
     th, td {
       padding: 6px 8px;
@@ -396,6 +399,14 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
       border-color:#009929;
       background: rgba(92, 203, 95, 0.28);
     }
+    /* Select Estado compacto */
+.status-select {
+  width: auto;
+  min-width: 70px;
+  max-width: 90px;
+  padding-right: 18px; /* espacio justo para la flecha */
+}
+
   </style>
 </head>
 <body>
@@ -996,7 +1007,7 @@ html += "</td>";
 
     // Col 2: estado
     html += "<td style='text-align:center;'>";
-    html += "<select class='status-select' data-product-id='" + escapeHtml(pid) + "' style='width:110px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
+    html += "<select class='status-select' data-product-id='" + escapeHtml(pid) + "' style='padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
     html += "<option value='active'"   + (pstatus === "active" ? " selected" : "") + ">Activo</option>";
     html += "<option value='draft'"    + (pstatus === "draft" ? " selected" : "") + ">Borrador</option>";
     html += "<option value='archived'" + (pstatus === "archived" ? " selected" : "") + ">Archivado</option>";
@@ -2250,6 +2261,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
