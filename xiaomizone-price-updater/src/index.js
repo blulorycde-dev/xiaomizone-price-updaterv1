@@ -658,10 +658,10 @@ input[type="number"] {
 
     function getPinOrAlert() {
       const pin = pinInput ? pinInput.value.trim() : "";
-      if (!pin) {
-        alert("Ingresá el PIN de administrador");
-        return null;
-      }
+    if (!pin) {
+  showTextModal("Falta PIN", "Ingresá el PIN de administrador.");
+  return null;
+}
       return pin;
     }
 
@@ -804,9 +804,12 @@ function showTextModal(title, text) {
           const txt = await r.text();
           let j;
           try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-          alert(j.message || JSON.stringify(j));
+         showTextModal(
+  "Respuesta",
+  j.message || JSON.stringify(j, null, 2)
+);
         } catch (err) {
-          alert("Error llamando al worker: " + err);
+          showTextModal("Error llamando al worker: " + err);
         }
       });
     }
@@ -830,9 +833,12 @@ function showTextModal(title, text) {
           const txt = await r.text();
           let j;
           try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-          alert(j.message || JSON.stringify(j));
+         showTextModal(
+  "Respuesta",
+  j.message || JSON.stringify(j, null, 2)
+);
         } catch (err) {
-          alert("Error llamando al worker: " + err);
+          showTextModal("Error llamando al worker: " + err);
         }
       });
     }
@@ -855,9 +861,12 @@ function showTextModal(title, text) {
           const txt = await r.text();
           let j;
           try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-          alert(j.message || JSON.stringify(j));
+          showTextModal(
+  "Respuesta",
+  j.message || JSON.stringify(j, null, 2)
+);
         } catch (err) {
-          alert("Error llamando al worker: " + err);
+          showTextModal("Error llamando al worker: " + err);
         }
       });
     }
@@ -869,9 +878,9 @@ function showTextModal(title, text) {
         try {
           const r = await fetch("/status");
           const txt = await r.text();
-         showTextModal("Estado del job (/status)", txt);
+         openTextModal("Estado del job", txt);
         } catch (err) {
-          alert("Error consultando status: " + err);
+          showTextModal("Error consultando status: " + err);
         }
       });
     }
@@ -885,9 +894,12 @@ function showTextModal(title, text) {
           const txt = await r.text();
           let j;
           try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-          alert(j.message || JSON.stringify(j));
-        } catch (err) {
-          alert("Error cancelando job: " + err);
+          showTextModal(
+  "Respuesta",
+  j.message || JSON.stringify(j, null, 2)
+);
+} catch (err) {
+         showTextModal("Error cancelando job: " + err);
         }
       });
     }
@@ -948,13 +960,16 @@ function showTextModal(title, text) {
         const r = await fetch("/base-list?" + params.toString());
         const txt = await r.text();
         let j;
-        try { j = JSON.parse(txt); } catch (_) {
-          alert("Respuesta no válida de /base-list");
-          console.log(txt);
-          return;
-        }
+       try { j = JSON.parse(txt); } catch (_) {
+  showTextModal("Respuesta no válida de /base-list", String(txt || ""));
+  console.log(txt);
+  return;
+}
+
         if (!j.ok) {
-          alert(j.message || "Error en /base-list");
+          showTextModal(
+  "Resultado",
+  j.message || "Error en /base-list");
           return;
         }
 
@@ -969,7 +984,7 @@ function showTextModal(title, text) {
 
         if (btnMoreBase) btnMoreBase.disabled = !baseCursor;
       } catch (err) {
-        alert("Error llamando a /base-list: " + err);
+        showTextModal("Error llamando a /base-list: " + err);
       }
     }
 
@@ -1111,7 +1126,9 @@ ev.preventDefault();
       try { j = JSON.parse(txt); } catch { j = { ok:false, message: txt }; }
 
       if (!j.ok) {
-        alert(j.message || "No se pudo actualizar el nombre");
+        showTextModal(
+  "Resultado",
+  j.message || "No se pudo actualizar el nombre");
         return;
       }
 
@@ -1122,7 +1139,8 @@ ev.preventDefault();
         applyModifiedFilter();
       }
     } catch (err) {
-      alert("Error actualizando nombre: " + err);
+        showTextModal
+("Error actualizando nombre: " + err);
     } finally {
       inp.disabled = false;
       inp.blur();
@@ -1162,7 +1180,10 @@ buttons.forEach((btn) => {
       let j;
       try { j = JSON.parse(txt); } catch { j = { ok:false, message: txt }; }
 
-      alert(j.message || "OK");
+      showTextModal(
+  "Resultado",
+  j.message || "OK"
+);
 
       if (j.ok) {
         const tr = btn.closest("tr");
@@ -1195,9 +1216,9 @@ buttons.forEach((btn) => {
         tr.setAttribute("data-modified", "1");
         applyModifiedFilter();
       }
-    } catch (e) {
-      alert("Error: " + (e?.message || e));
-    }
+   } catch (e) {
+  showTextModal("Error", String(e?.message || e));
+}
   });
 });
 } // <- FIN renderBaseTable(rows)
@@ -1240,11 +1261,11 @@ function escapeHtml(str) {
           let entries;
           try {
             entries = JSON.parse(txt);
-          } catch (_) {
-            alert("Respuesta no válida de /log");
-            console.log(txt);
-            return;
-          }
+         } catch (_) {
+  showTextModal("Respuesta no válida de /log", String(txt || ""));
+  console.log(txt);
+  return;
+}
 
           if (!Array.isArray(entries)) entries = [];
 
@@ -1320,7 +1341,8 @@ function escapeHtml(str) {
 
           logList.innerHTML = html;
         } catch (err) {
-          alert("Error cargando historial: " + err);
+            showTextModal
+("Error cargando historial: " + err);
         }
       });
     }
@@ -2295,6 +2317,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
