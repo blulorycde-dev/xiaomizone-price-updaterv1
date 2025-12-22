@@ -903,11 +903,11 @@ html += "</td>";
 
   html += "</tbody></table>";
   
-  baseTableDiv.innerHTML = html;
+ baseTableDiv.innerHTML = html;
 
-  // Guardar NOMBRE con Enter (columna Producto)
+// Guardar NOMBRE con Enter (columna Producto)
 const titleInputs = baseTableDiv.querySelectorAll(".title-input");
-titleInputs.forEach(inp => {
+titleInputs.forEach((inp) => {
   inp.addEventListener("keydown", async (ev) => {
     if (ev.key !== "Enter") return;
     ev.preventDefault();
@@ -939,14 +939,12 @@ titleInputs.forEach(inp => {
         return;
       }
 
-      // marcar fila
       const tr = inp.closest("tr");
       if (tr) {
         tr.classList.add("row-modified");
         tr.setAttribute("data-modified", "1");
         applyModifiedFilter();
       }
-
     } catch (err) {
       alert("Error actualizando nombre: " + err);
     } finally {
@@ -956,8 +954,79 @@ titleInputs.forEach(inp => {
   });
 });
 
-// ================= HELPERS =================
+// Guardar Base USD (botón Guardar)
+const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
+buttons.forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const pin = getPinOrAlert();
+    if (!pin) return;
 
+    const vid = btn.getAttribute("data-variant-id");
+    const input = baseTableDiv.querySelector(
+      "input.base-input-row[data-variant-id='" + vid + "']"
+    );
+    if (!input) { alert("No se encontró el input"); return; }
+
+    const valRaw = (input.value || "").trim();
+    const baseNum = parseFloat(String(valRaw).replace(",", "."));
+    if (!Number.isFinite(baseNum) || baseNum <= 0) { alert("Base USD inválido"); return; }
+
+    const params = new URLSearchParams();
+    params.set("pin", pin);
+    params.set("variantId", vid);
+    params.set("baseUsd", String(baseNum));
+    params.set("applyRate", "1");
+    params.set("rate", String(FIXED_RATE));
+    params.set("margin", String(FIXED_MARGIN));
+    params.set("round", String(ROUND_STEP));
+
+    try {
+      const r = await fetch("/set-base-usd?" + params.toString());
+      const txt = await r.text();
+      let j;
+      try { j = JSON.parse(txt); } catch { j = { ok:false, message: txt }; }
+
+      alert(j.message || "OK");
+
+      if (j.ok) {
+        const tr = btn.closest("tr");
+        if (!tr) return;
+
+        const cells = tr.querySelectorAll("td");
+        // 0 Producto
+        // 1 Estado
+        // 2 SKU
+        // 3 Precio base
+        // 4 Precio recargo
+        // 5 Base USD
+        // 6 Tasa
+        // 7 Acción
+
+        const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
+        const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
+
+        if (cells[3]) cells[3].textContent = pb.toLocaleString("es-PY");
+        if (cells[4]) cells[4].textContent = pr.toLocaleString("es-PY");
+
+        const tasa = pr / baseNum;
+        if (cells[6]) {
+          const cls = (tasa < 5000 || tasa > 15000) ? "badge badge-danger" : "badge";
+          cells[6].innerHTML = "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
+        }
+
+        input.classList.add("modified");
+        tr.classList.add("row-modified");
+        tr.setAttribute("data-modified", "1");
+        applyModifiedFilter();
+      }
+    } catch (e) {
+      alert("Error: " + (e?.message || e));
+    }
+  });
+});
+} // <- FIN renderBaseTable(rows)
+
+// ================= HELPERS =================
 function applyModifiedFilter() {
   if (!toggleModified || !baseTableDiv.querySelector("table")) return;
   const onlyMod = toggleModified.checked;
@@ -977,124 +1046,6 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
-
-
-const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
-buttons.forEach(btn => {
-  btn.addEventListener("click", async () => {
-    const pin = getPinOrAlert();
-    if (!pin) return;
-
-    const vid = btn.getAttribute("data-variant-id");
-    const input = baseTableDiv.querySelector(
-      "input.base-input-row[data-variant-id='" + vid + "']"
-    );
-    if (!input) { alert("No se encontró el input"); return; }
-
-    const val = input.value.trim();
-    if (!val || isNaN(val)) { alert("Base USD inválido"); return; }
-
-    const params = new URLSearchParams();
-    params.set("pin", pin);
-    params.set("variantId", vid);
-    params.set("baseUsd", val);
-    params.set("applyRate", "1");
-    params.set("rate", String(FIXED_RATE));
-    params.set("margin", String(FIXED_MARGIN));
-    params.set("round", String(ROUND_STEP));
-
-    try {
-      const r = await fetch("/set-base-usd?" + params.toString());
-      const j = await r.json();
-
-      alert(j.message || "OK");
-
-const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
-
-buttons.forEach(btn => {
-  btn.addEventListener("click", async () => {
-    const pin = getPinOrAlert();
-    if (!pin) return;
-
-    const vid = btn.getAttribute("data-variant-id");
-    const input = baseTableDiv.querySelector(
-      "input.base-input-row[data-variant-id='" + vid + "']"
-    );
-    if (!input) {
-      alert("No se encontró el input");
-      return;
-    }
-
-    const val = input.value.trim();
-    if (!val || isNaN(val)) {
-      alert("Base USD inválido");
-      return;
-    }
-
-    const params = new URLSearchParams();
-    params.set("pin", pin);
-    params.set("variantId", vid);
-    params.set("baseUsd", val);
-    params.set("applyRate", "1");
-    params.set("rate", String(FIXED_RATE));
-    params.set("margin", String(FIXED_MARGIN));
-    params.set("round", String(ROUND_STEP));
-
-    try {
-      const r = await fetch("/set-base-usd?" + params.toString());
-      const j = await r.json();
-
-      alert(j.message || "OK");
-
-      if (j.ok) {
-        const tr = btn.closest("tr");
-        if (!tr) return;
-
-        const cells = tr.querySelectorAll("td");
-
-        // 0 Producto
-        // 1 Estado
-        // 2 SKU
-        // 3 Precio base
-        // 4 Precio recargo
-        // 5 Base USD
-        // 6 Tasa
-        // 7 Acción
-
-        const baseNum = parseFloat(String(val).replace(",", "."));
-        if (!Number.isFinite(baseNum) || baseNum <= 0) {
-          alert("Base USD inválido");
-          return;
-        }
-
-        const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
-        const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
-
-        if (cells[3]) cells[3].textContent = pb.toLocaleString("es-PY");
-        if (cells[4]) cells[4].textContent = pr.toLocaleString("es-PY");
-
-        const tasa = pr / baseNum;
-        if (cells[6]) {
-          const cls = (tasa < 5000 || tasa > 15000)
-            ? "badge badge-danger"
-            : "badge";
-          cells[6].innerHTML =
-            "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
-        }
-
-        input.classList.add("modified");
-        tr.classList.add("row-modified");
-        tr.setAttribute("data-modified", "1");
-        applyModifiedFilter();
-      }
-
-    } catch (e) {
-      alert("Error: " + (e?.message || e));
-    }
-
-  }); // ← cierre addEventListener
-});   // ← cierre forEach
-
     // --------- HISTORIAL DE CAMBIOS (LOG) ----------
 
     if (btnLoadLog) {
@@ -2168,6 +2119,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
