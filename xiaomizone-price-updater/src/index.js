@@ -882,7 +882,7 @@ function showApiResult(title, txt, okHumanMsg) {
   j.message || JSON.stringify(j, null, 2)
 );
         } catch (err) {
-          showTextModal("Error llamando al worker: " + err);
+          showTextModal("Error", "Error llamando al worker: " + err);
         }
       });
     }
@@ -909,44 +909,49 @@ function showApiResult(title, txt, okHumanMsg) {
   "Respuesta",
   j.message || JSON.stringify(j, null, 2)
 );
-        } catch (err) {
-          showTextModal("Error llamando al worker: " + err);
+        } catch (err) {showTextModal("Error", "Error llamando al worker: " + err);
         }
       });
     }
 
     // --------- STATUS / CANCEL ----------
 
-    if (btnStatus) {
-      btnStatus.addEventListener("click", async () => {
-        try {
-          const r = await fetch("/status");
-          const txt = await r.text();
-        showTextModal("Estado del job", txt);
-        } catch (err) {
-          showTextModal("Error consultando status: " + err);
-        }
-      });
+   if (btnStatus) {
+  btnStatus.addEventListener("click", async () => {
+    try {
+      const r = await fetch("/status");
+      const txt = await r.text();
+      showTextModal("Estado del job", txt);
+    } catch (err) {
+      showTextModal("Error", "Error consultando status: " + (err?.message || err));
     }
+  });
+}
 
     if (btnCancel) {
-      btnCancel.addEventListener("click", async () => {
-        const pin = getPinOrAlert();
-        if (!pin) return;
-        try {
-          const r = await fetch("/cancel?pin=" + encodeURIComponent(pin));
-          const txt = await r.text();
-          let j;
-          try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-          showTextModal(
-  "Respuesta",
-  j.message || JSON.stringify(j, null, 2)
-);
-} catch (err) {
-         showTextModal("Error cancelando job: " + err);
-        }
-      });
+  btnCancel.addEventListener("click", async () => {
+    const pin = getPinOrAlert();
+    if (!pin) return;
+
+    try {
+      const r = await fetch("/cancel?pin=" + encodeURIComponent(pin));
+      const txt = await r.text();
+
+      const j = showApiResult(
+        "Cancelar job",
+        txt,
+        "Job cancelado."
+      );
+
+      // si querés hacer algo extra cuando ok:
+      if (j && j.ok) {
+        // por ejemplo: nada
+      }
+    } catch (err) {
+      showTextModal("Error", "Error cancelando job: " + (err?.message || err));
     }
+  });
+}
 
     // --------- LISTA DE PRODUCTOS (paginada) ----------
 
@@ -1000,37 +1005,35 @@ function showApiResult(title, txt, okHumanMsg) {
       if (status) params.set("status", status);
       if (!reset && baseCursor) params.set("cursor", baseCursor);
 
-      try {
+            try {
         const r = await fetch("/base-list?" + params.toString());
         const txt = await r.text();
+
         let j;
-       try { j = JSON.parse(txt); } catch (_) {
-  showTextModal("Respuesta no válida de /base-list", String(txt || ""));
-  console.log(txt);
-  return;
-}
+        try { j = JSON.parse(txt); }
+        catch (_) {
+          showTextModal("Respuesta no válida de /base-list", String(txt || ""));
+          console.log(txt);
+          return;
+        }
 
         if (!j.ok) {
-          showTextModal(
-  "Resultado",
-  j.message || "Error en /base-list");
+          showTextModal("Resultado", j.message || "Error en /base-list");
           return;
         }
 
         const rows = j.rows || [];
-        if (reset) {
-          baseRows = rows;
-        } else {
-          baseRows = baseRows.concat(rows);
-        }
+        if (reset) baseRows = rows;
+        else baseRows = baseRows.concat(rows);
+
         baseCursor = j.nextCursor || null;
         renderBaseTable(baseRows);
 
         if (btnMoreBase) btnMoreBase.disabled = !baseCursor;
+
       } catch (err) {
-        showTextModal("Error llamando a /base-list: " + err);
+        showTextModal("Error", "Error llamando a /base-list: " + (err?.message || err));
       }
-    }
 
     function renderBaseTable(rows) {
   if (!baseTableDiv) return;
@@ -2359,6 +2362,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
