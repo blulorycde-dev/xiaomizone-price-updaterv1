@@ -261,6 +261,12 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
     /* Tabla fija para controlar anchos de columnas */
 #base-table table { table-layout: fixed; }
 
+/* Columna Base USD más ancha */
+#base-table th:nth-child(6),
+#base-table td:nth-child(6) {
+  width: 120px;
+}
+
 /* Columna Producto más ancha */
 #base-table th:nth-child(1),
 #base-table td:nth-child(1) { width: 330px; }
@@ -278,6 +284,11 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
       border-bottom: 1px solid #e2e4ea;
       vertical-align: middle;
     }
+    
+/* Separación visual SKU respecto a Estado */
+#base-table td:nth-child(3) {
+  padding-left: 14px;
+}
 
     /* Encabezados centrados */
     th {
@@ -399,12 +410,34 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
       border-color:#009929;
       background: rgba(92, 203, 95, 0.28);
     }
-   /* Select Estado compacto (forzado contra inline) */
+
+    /* Base USD: mejor lectura del número */
+input.base-input-row {
+  padding-right: 6px;
+  text-align: right;
+}
+
+     /* Select Estado compacto (forzado contra inline) */
 .status-select {
   width: auto !important;
   min-width: 70px;
   max-width: 90px;
   padding-right: 18px;
+}
+
+/* Flechas del input number muy discretas */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  opacity: 0.15;
+}
+
+input[type="number"]:hover::-webkit-inner-spin-button {
+  opacity: 0.4;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
 }
 
 
@@ -2262,6 +2295,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
