@@ -1814,6 +1814,7 @@ async function runBatch(env) {
   if (!job?.running) return;
 
   const mode = job.mode || "update";
+
   try {
     const pageSize = 10;
 
@@ -1872,6 +1873,7 @@ async function runBatch(env) {
 
         job.processedVariants++;
 
+        // ===== reset_base: recalcula base_usd sin tocar precio =====
         if (mode === "reset_base") {
           const baseCalculated = Math.round((pricePYG / job.rate) * 100) / 100;
           let status = "skipped";
@@ -1894,11 +1896,10 @@ async function runBatch(env) {
 
           variantsDone++;
           await sleep(REQ_THROTTLE_MS);
-          if (variantsDone >= BATCH_LIMIT) break;
           continue;
         }
 
-        // modo update normal
+        // ===== update normal =====
         const { baseUsd, seeded } = await getOrSeedBaseUSD(
           shop,
           variantId,
@@ -1936,7 +1937,6 @@ async function runBatch(env) {
 
         variantsDone++;
         await sleep(REQ_THROTTLE_MS);
-        if (variantsDone >= BATCH_LIMIT) break;
       }
 
       if (variantsDone >= BATCH_LIMIT) break;
@@ -1958,7 +1958,7 @@ async function runBatch(env) {
     job.lastRunAt = new Date().toISOString();
     await saveJob(env, job);
   }
-  }
+}
 
 // ============ Shopify: listado de productos (REST para el job) ============
 
@@ -2359,6 +2359,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
