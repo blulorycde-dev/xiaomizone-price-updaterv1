@@ -258,6 +258,17 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
       margin-top: 6px;
     }
 
+    /* Tabla fija para controlar anchos de columnas */
+#base-table table { table-layout: fixed; }
+
+/* Columna Producto más ancha */
+#base-table th:nth-child(1),
+#base-table td:nth-child(1) { width: 360px; }
+
+/* Estado más angosta */
+#base-table th:nth-child(2),
+#base-table td:nth-child(2) { width: 120px; }
+
     th, td {
       padding: 6px 8px;
       font-size: 13px;
@@ -613,6 +624,63 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
       if (!step || step <= 1) return Math.round(n);
       return Math.round(n / step) * step;
     }
+    
+// ===== MODAL COPIABLE (reemplaza alert largos) =====
+function showTextModal(title, text) {
+  let overlay = document.getElementById("text-modal-overlay");
+  if (!overlay) {
+    overlay = document.createElement("div");
+    overlay.id = "text-modal-overlay";
+    overlay.style.cssText = `
+      position:fixed; inset:0; background:rgba(0,0,0,.45);
+      display:flex; align-items:center; justify-content:center;
+      padding:16px; z-index:9999;
+    `;
+    overlay.innerHTML = `
+      <div style="width:min(900px,95vw); background:#fff; border-radius:12px; border:1px solid #e2e4ea; box-shadow:0 10px 30px rgba(0,0,0,.18); overflow:hidden;">
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:#f5f6fa; border-bottom:1px solid #e2e4ea;">
+          <div id="text-modal-title" style="font-weight:700; font-size:13px; color:#222;"></div>
+          <div style="display:flex; gap:8px;">
+            <button type="button" id="text-modal-copy" class="secondary" style="margin-top:0; font-size:12px; padding:6px 10px;">Copiar</button>
+            <button type="button" id="text-modal-close" class="secondary" style="margin-top:0; font-size:12px; padding:6px 10px;">Cerrar</button>
+          </div>
+        </div>
+        <div style="padding:10px 12px;">
+          <textarea id="text-modal-ta" readonly
+            style="width:100%; height:55vh; font-family:ui-monospace, Menlo, Monaco, Consolas, 'Courier New', monospace; font-size:12px; border:1px solid #cfd3dd; border-radius:8px; padding:10px; white-space:pre; overflow:auto;"></textarea>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) overlay.style.display = "none";
+    });
+
+    overlay.querySelector("#text-modal-close").addEventListener("click", () => {
+      overlay.style.display = "none";
+    });
+
+    overlay.querySelector("#text-modal-copy").addEventListener("click", async () => {
+      const ta = overlay.querySelector("#text-modal-ta");
+      ta.focus();
+      ta.select();
+      try {
+        await navigator.clipboard.writeText(ta.value);
+      } catch (_) {
+        document.execCommand("copy");
+      }
+    });
+  }
+
+  overlay.querySelector("#text-modal-title").textContent = title || "Detalle";
+  overlay.querySelector("#text-modal-ta").value = String(text ?? "");
+  overlay.style.display = "flex";
+
+  const ta = overlay.querySelector("#text-modal-ta");
+  ta.focus();
+  ta.select();
+}
 
     // --------- UPDATE ----------
 
@@ -697,7 +765,7 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
         try {
           const r = await fetch("/status");
           const txt = await r.text();
-          alert(txt);
+         showTextModal("Estado del job (/status)", txt);
         } catch (err) {
           alert("Error consultando status: " + err);
         }
@@ -858,17 +926,18 @@ html += "<th>SKU</th>";
 
     html += "<tr data-modified='0'>";
 
-   // Col 1: producto (título editable + IDs)
+ // Col 1: producto (título editable + IDs)
 html += "<td>";
-html += "<input type='text' class='title-input' data-product-id='" + escapeHtml(pid) + "' ";
-html += "value='" + escapeHtml(title) + "' ";
-html += "style='width:100%;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
-html += "<br><small style='color:#999;'>Prod ID: " + escapeHtml(pid) + " · Var ID: " + escapeHtml(vid) + "</small>";
+html += "<textarea class='title-input' rows='2' data-product-id='" + escapeHtml(pid) + "' ";
+html += "style='width:100%;padding:6px 8px;font-size:12px;line-height:1.2;border-radius:8px;border:1px solid #cfd3dd;resize:none;'>";
+html += escapeHtml(title);
+html += "</textarea>";
+html += "<div style='color:#999;font-size:11px;line-height:1.1;margin-top:3px;'>Prod ID: " + escapeHtml(pid) + " · Var ID: " + escapeHtml(vid) + "</div>";
 html += "</td>";
 
     // Col 2: estado
     html += "<td style='text-align:center;'>";
-    html += "<select class='status-select' data-product-id='" + escapeHtml(pid) + "' style='width:140px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
+    html += "<select class='status-select' data-product-id='" + escapeHtml(pid) + "' style='width:110px;padding:4px 6px;font-size:12px;border-radius:6px;border:1px solid #cfd3dd;'>";
     html += "<option value='active'"   + (pstatus === "active" ? " selected" : "") + ">Activo</option>";
     html += "<option value='draft'"    + (pstatus === "draft" ? " selected" : "") + ">Borrador</option>";
     html += "<option value='archived'" + (pstatus === "archived" ? " selected" : "") + ">Archivado</option>";
@@ -909,8 +978,11 @@ html += "</td>";
 const titleInputs = baseTableDiv.querySelectorAll(".title-input");
 titleInputs.forEach((inp) => {
   inp.addEventListener("keydown", async (ev) => {
-    if (ev.key !== "Enter") return;
-    ev.preventDefault();
+   if (ev.key !== "Enter") return;
+// Shift+Enter permite nueva línea
+if (ev.shiftKey) return;
+ev.preventDefault();
+
 
     const pin = getPinOrAlert();
     if (!pin) return;
@@ -2119,6 +2191,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
