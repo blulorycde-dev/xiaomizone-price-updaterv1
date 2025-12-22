@@ -263,7 +263,7 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
 
 /* Columna Producto más ancha */
 #base-table th:nth-child(1),
-#base-table td:nth-child(1) { width: 360px; }
+#base-table td:nth-child(1) { width: 330px; }
 
 /* Estado más angosta */
 #base-table th:nth-child(2),
@@ -2250,6 +2250,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
