@@ -627,50 +627,107 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
     
 // ===== MODAL COPIABLE (reemplaza alert largos) =====
 function showTextModal(title, text) {
+  // crea overlay si no existe
   let overlay = document.getElementById("text-modal-overlay");
   if (!overlay) {
     overlay = document.createElement("div");
     overlay.id = "text-modal-overlay";
     overlay.style.cssText =
-  "position:fixed; inset:0; background:rgba(0,0,0,.45);" +
-  "display:flex; align-items:center; justify-content:center;" +
-  "padding:16px; z-index:9999;";
-    `;
-    overlay.innerHTML = `
-      <div style="width:min(900px,95vw); background:#fff; border-radius:12px; border:1px solid #e2e4ea; box-shadow:0 10px 30px rgba(0,0,0,.18); overflow:hidden;">
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 12px; background:#f5f6fa; border-bottom:1px solid #e2e4ea;">
-          <div id="text-modal-title" style="font-weight:700; font-size:13px; color:#222;"></div>
-          <div style="display:flex; gap:8px;">
-            <button type="button" id="text-modal-copy" class="secondary" style="margin-top:0; font-size:12px; padding:6px 10px;">Copiar</button>
-            <button type="button" id="text-modal-close" class="secondary" style="margin-top:0; font-size:12px; padding:6px 10px;">Cerrar</button>
-          </div>
-        </div>
-        <div style="padding:10px 12px;">
-          <textarea id="text-modal-ta" readonly
-            style="width:100%; height:55vh; font-family:ui-monospace, Menlo, Monaco, Consolas, 'Courier New', monospace; font-size:12px; border:1px solid #cfd3dd; border-radius:8px; padding:10px; white-space:pre; overflow:auto;"></textarea>
-        </div>
-      </div>
-    `;
-    document.body.appendChild(overlay);
+      "position:fixed; inset:0; background:rgba(0,0,0,.45);" +
+      "display:none; align-items:center; justify-content:center;" +
+      "padding:16px; z-index:9999;";
 
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) overlay.style.display = "none";
-    });
+    const modal = document.createElement("div");
+    modal.style.cssText =
+      "width:min(900px, 96vw); max-height:80vh; overflow:auto;" +
+      "background:#0b1220; color:#e5e7eb;" +
+      "border:1px solid rgba(255,255,255,.12);" +
+      "border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.45);";
 
-    overlay.querySelector("#text-modal-close").addEventListener("click", () => {
-      overlay.style.display = "none";
-    });
+    const header = document.createElement("div");
+    header.style.cssText =
+      "display:flex; align-items:center; justify-content:space-between;" +
+      "padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.12);";
 
-    overlay.querySelector("#text-modal-copy").addEventListener("click", async () => {
-      const ta = overlay.querySelector("#text-modal-ta");
-      ta.focus();
-      ta.select();
+    const h = document.createElement("div");
+    h.id = "text-modal-title";
+    h.style.cssText = "font-weight:700; font-size:14px;";
+    h.textContent = "Detalle";
+
+    const close = document.createElement("button");
+    close.type = "button";
+    close.textContent = "Cerrar";
+    close.style.cssText =
+      "background:#111827; color:#fff; border:1px solid rgba(255,255,255,.18);" +
+      "border-radius:10px; padding:8px 10px; cursor:pointer; font-weight:700;";
+
+    const body = document.createElement("div");
+    body.style.cssText = "padding:12px 14px;";
+
+    const ta = document.createElement("textarea");
+    ta.id = "text-modal-ta";
+    ta.readOnly = true;
+    ta.style.cssText =
+      "width:100%; min-height:240px; resize:vertical;" +
+      "margin:0; white-space:pre-wrap; word-break:break-word;" +
+      "font-size:12px; line-height:1.35;" +
+      "background:#0f172a; color:#e5e7eb;" +
+      "border:1px solid rgba(255,255,255,.12);" +
+      "border-radius:12px; padding:12px;" +
+      "user-select:text;";
+
+    const actions = document.createElement("div");
+    actions.style.cssText =
+      "display:flex; gap:8px; justify-content:flex-end; margin-top:10px;";
+
+    const copyBtn = document.createElement("button");
+    copyBtn.type = "button";
+    copyBtn.textContent = "Copiar";
+    copyBtn.style.cssText =
+      "background:#2563eb; color:#fff; border:none;" +
+      "border-radius:10px; padding:8px 10px; cursor:pointer; font-weight:700;";
+
+    copyBtn.addEventListener("click", async () => {
       try {
-        await navigator.clipboard.writeText(ta.value);
-      } catch (_) {
-        document.execCommand("copy");
+        await navigator.clipboard.writeText(ta.value || "");
+        copyBtn.textContent = "Copiado";
+        setTimeout(() => (copyBtn.textContent = "Copiar"), 900);
+      } catch (e) {
+        ta.focus();
+        ta.select();
+        alert("No se pudo copiar automático. Probá Ctrl+C.");
       }
     });
+
+    function doClose() {
+      overlay.style.display = "none";
+      document.removeEventListener("keydown", onKey);
+    }
+    function onKey(ev) {
+      if (ev.key === "Escape") doClose();
+    }
+
+    close.addEventListener("click", doClose);
+    overlay.addEventListener("click", (ev) => {
+      if (ev.target === overlay) doClose();
+    });
+
+    // guardamos handler en overlay para poder setearlo al abrir
+    overlay._onKey = onKey;
+
+    actions.appendChild(copyBtn);
+    actions.appendChild(close);
+
+    header.appendChild(h);
+    header.appendChild(close);
+
+    body.appendChild(ta);
+    body.appendChild(actions);
+
+    modal.appendChild(header);
+    modal.appendChild(body);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
   }
 
   overlay.querySelector("#text-modal-title").textContent = title || "Detalle";
@@ -680,6 +737,8 @@ function showTextModal(title, text) {
   const ta = overlay.querySelector("#text-modal-ta");
   ta.focus();
   ta.select();
+
+  document.addEventListener("keydown", overlay._onKey);
 }
 
     // --------- UPDATE ----------
@@ -2191,6 +2250,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
