@@ -956,6 +956,29 @@ titleInputs.forEach(inp => {
   });
 });
 
+// ================= HELPERS =================
+
+function applyModifiedFilter() {
+  if (!toggleModified || !baseTableDiv.querySelector("table")) return;
+  const onlyMod = toggleModified.checked;
+  const rows = baseTableDiv.querySelectorAll("tbody tr");
+  rows.forEach(tr => {
+    const isMod = tr.getAttribute("data-modified") === "1";
+    tr.style.display = (!onlyMod || isMod) ? "" : "none";
+  });
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+
 const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
 buttons.forEach(btn => {
   btn.addEventListener("click", async () => {
@@ -986,61 +1009,91 @@ buttons.forEach(btn => {
 
       alert(j.message || "OK");
 
+const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
+
+buttons.forEach(btn => {
+  btn.addEventListener("click", async () => {
+    const pin = getPinOrAlert();
+    if (!pin) return;
+
+    const vid = btn.getAttribute("data-variant-id");
+    const input = baseTableDiv.querySelector(
+      "input.base-input-row[data-variant-id='" + vid + "']"
+    );
+    if (!input) {
+      alert("No se encontró el input");
+      return;
+    }
+
+    const val = input.value.trim();
+    if (!val || isNaN(val)) {
+      alert("Base USD inválido");
+      return;
+    }
+
+    const params = new URLSearchParams();
+    params.set("pin", pin);
+    params.set("variantId", vid);
+    params.set("baseUsd", val);
+    params.set("applyRate", "1");
+    params.set("rate", String(FIXED_RATE));
+    params.set("margin", String(FIXED_MARGIN));
+    params.set("round", String(ROUND_STEP));
+
+    try {
+      const r = await fetch("/set-base-usd?" + params.toString());
+      const j = await r.json();
+
+      alert(j.message || "OK");
+
       if (j.ok) {
         const tr = btn.closest("tr");
         if (!tr) return;
 
-    const cells = tr.querySelectorAll("td");
+        const cells = tr.querySelectorAll("td");
 
-// 0 Producto
-// 1 Estado
-// 2 SKU
-// 3 Precio base
-// 4 Precio recargo
-// 5 Base USD
-// 6 Tasa
-// 7 Acción
+        // 0 Producto
+        // 1 Estado
+        // 2 SKU
+        // 3 Precio base
+        // 4 Precio recargo
+        // 5 Base USD
+        // 6 Tasa
+        // 7 Acción
 
-const baseNum = parseFloat(String(val).replace(",", "."));
-if (!Number.isFinite(baseNum) || baseNum <= 0) { alert("Base USD inválido"); return; }
+        const baseNum = parseFloat(String(val).replace(",", "."));
+        if (!Number.isFinite(baseNum) || baseNum <= 0) {
+          alert("Base USD inválido");
+          return;
+        }
 
-const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
-const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
+        const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
+        const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
 
-if (cells[3]) cells[3].textContent = pb.toLocaleString("es-PY");
-if (cells[4]) cells[4].textContent = pr.toLocaleString("es-PY");
+        if (cells[3]) cells[3].textContent = pb.toLocaleString("es-PY");
+        if (cells[4]) cells[4].textContent = pr.toLocaleString("es-PY");
 
-const tasa = pr / baseNum;
-if (cells[6]) {
-  const cls = (tasa < 5000 || tasa > 15000) ? "badge badge-danger" : "badge";
-  cells[6].innerHTML = "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
-}
+        const tasa = pr / baseNum;
+        if (cells[6]) {
+          const cls = (tasa < 5000 || tasa > 15000)
+            ? "badge badge-danger"
+            : "badge";
+          cells[6].innerHTML =
+            "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
+        }
 
-input.classList.add("modified");
-tr.classList.add("row-modified");
-tr.setAttribute("data-modified", "1");
-applyModifiedFilter();
+        input.classList.add("modified");
+        tr.classList.add("row-modified");
+        tr.setAttribute("data-modified", "1");
+        applyModifiedFilter();
+      }
 
-
-     function applyModifiedFilter() {
-      if (!toggleModified || !baseTableDiv.querySelector("table")) return;
-      const onlyMod = toggleModified.checked;
-      const rows = baseTableDiv.querySelectorAll("tbody tr");
-      rows.forEach(tr => {
-        const isMod = tr.getAttribute("data-modified") === "1";
-        tr.style.display = (!onlyMod || isMod) ? "" : "none";
-      });
+    } catch (e) {
+      alert("Error: " + (e?.message || e));
     }
 
-    function escapeHtml(str) {
-      if (!str) return "";
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-    }
+  }); // ← cierre addEventListener
+});   // ← cierre forEach
 
     // --------- HISTORIAL DE CAMBIOS (LOG) ----------
 
@@ -2115,6 +2168,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
