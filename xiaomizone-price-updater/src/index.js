@@ -1194,59 +1194,113 @@ html += "</td>";
   
  baseTableDiv.innerHTML = html;
 
-// Guardar NOMBRE con Enter (columna Producto)
-const titleInputs = baseTableDiv.querySelectorAll(".title-input");
-titleInputs.forEach((inp) => {
-  inp.addEventListener("keydown", async (ev) => {
-   if (ev.key !== "Enter") return;
-// Shift+Enter permite nueva línea
-if (ev.shiftKey) return;
-ev.preventDefault();
+  // Guardar NOMBRE con Enter (columna Producto)
+  const titleInputs = baseTableDiv.querySelectorAll(".title-input");
+  titleInputs.forEach((inp) => {
+    inp.addEventListener("keydown", async (ev) => {
+      if (ev.key !== "Enter") return;
+      if (ev.shiftKey) return; // Shift+Enter: no guardar
+      ev.preventDefault();
 
+      const pin = getPinOrAlert();
+      if (!pin) return;
 
-    const pin = getPinOrAlert();
-    if (!pin) return;
+      const productId = inp.getAttribute("data-product-id");
+      const title = (inp.value || "").trim();
 
-    const productId = inp.getAttribute("data-product-id");
-    const title = (inp.value || "").trim();
+      if (!productId) { alert("Falta productId"); return; }
+      if (!title) { alert("El nombre no puede estar vacío"); return; }
 
-    if (!productId) { alert("Falta productId"); return; }
-    if (!title) { alert("El nombre no puede estar vacío"); return; }
+      inp.disabled = true;
 
-    inp.disabled = true;
+      try {
+        const params = new URLSearchParams();
+        params.set("pin", pin);
+        params.set("productId", productId);
+        params.set("title", title);
 
-    try {
+        const r = await fetch("/product/set-title?" + params.toString());
+        const txt = await r.text();
+
+        const j = showApiResult("Nombre de producto", txt, "Nombre cambiado.");
+        if (!j || !j.ok) return;
+
+        const tr = inp.closest("tr");
+        if (tr) {
+          tr.classList.add("row-modified");
+          tr.setAttribute("data-modified", "1");
+          applyModifiedFilter();
+        }
+      } catch (err) {
+        showTextModal("Error", "Error actualizando nombre: " + err);
+      } finally {
+        inp.disabled = false;
+        inp.blur();
+      }
+    });
+  });
+
+  // Guardar Base USD (botón Guardar)
+  const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
+  buttons.forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const pin = getPinOrAlert();
+      if (!pin) return;
+
+      const vid = btn.getAttribute("data-variant-id");
+      const input = baseTableDiv.querySelector(
+        "input.base-input-row[data-variant-id='" + vid + "']"
+      );
+      if (!input) { alert("No se encontró el input"); return; }
+
+      const valRaw = (input.value || "").trim();
+      const baseNum = parseFloat(String(valRaw).replace(",", "."));
+      if (!Number.isFinite(baseNum) || baseNum <= 0) { alert("Base USD inválido"); return; }
+
       const params = new URLSearchParams();
       params.set("pin", pin);
-      params.set("productId", productId);
-      params.set("title", title);
+      params.set("variantId", vid);
+      params.set("baseUsd", String(baseNum));
+      params.set("applyRate", "1");
+      params.set("rate", String(FIXED_RATE));
+      params.set("margin", String(FIXED_MARGIN));
+      params.set("round", String(ROUND_STEP));
 
-     const r = await fetch("/product/set-title?" + params.toString());
-const txt = await r.text();
+      try {
+        const r = await fetch("/set-base-usd?" + params.toString());
+        const txt = await r.text();
 
-const j = showApiResult(
-  "Nombre de producto",
-  txt,
-  "Nombre cambiado."
-);
+        const j = showApiResult("Base USD", txt, "Base USD guardado y precio actualizado.");
+        if (!j || !j.ok) return;
 
-if (!j || !j.ok) return;
+        const tr = btn.closest("tr");
+        if (!tr) return;
 
+        const cells = tr.querySelectorAll("td");
 
-      const tr = inp.closest("tr");
-      if (tr) {
+        const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
+        const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
+
+        if (cells[3]) cells[3].textContent = pb.toLocaleString("es-PY");
+        if (cells[4]) cells[4].textContent = pr.toLocaleString("es-PY");
+
+        const tasa = pr / baseNum;
+        if (cells[6]) {
+          const cls = (tasa < 5000 || tasa > 15000) ? "badge badge-danger" : "badge";
+          cells[6].innerHTML = "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
+        }
+
+        input.classList.add("modified");
         tr.classList.add("row-modified");
         tr.setAttribute("data-modified", "1");
         applyModifiedFilter();
+      } catch (e) {
+        showTextModal("Error", String(e?.message || e));
       }
-    } catch (err) {
-       showTextModal("Error", "Error actualizando nombre: " + err);
-    } finally {
-      inp.disabled = false;
-      inp.blur();
-    }
+    });
   });
-});
+}
+
 
 // Guardar Base USD (botón Guardar)
 const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
@@ -2423,6 +2477,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
