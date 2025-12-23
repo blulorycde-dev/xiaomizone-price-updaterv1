@@ -56,6 +56,60 @@ async function setProductStatus_GQL(shop, productId, status) {
   const errs = data?.data?.productUpdate?.userErrors || [];
   return errs.length === 0;
 }
+
+    async function setProductTitle_GQL(shop, productId, title) {
+  const { domain, token } = shop;
+  const endpoint = `https://${domain}/admin/api/${API_VERSION}/graphql.json`;
+
+  const mutation = `
+    mutation productUpdate($input: ProductInput!) {
+      productUpdate(input: $input) {
+        product { id title }
+        userErrors { field message }
+      }
+    }
+  `;
+
+  const gid =
+  String(productId).startsWith("gid://")
+    ? productId
+    : `gid://shopify/Product/${productId}`;
+
+const variables = {
+  input: {
+    id: gid,
+    title,
+  },
+};
+
+
+  const r = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "X-Shopify-Access-Token": token,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ query: mutation, variables }),
+  });
+
+  if (!r.ok) {
+    const txt = await r.text().catch(() => "");
+    throw new Error(
+      "productUpdate title -> " + r.status + (txt ? " | " + txt.slice(0, 200) : "")
+    );
+  }
+
+  let data;
+  try { data = await r.json(); }
+  catch { throw new Error("Respuesta GraphQL no es JSON (productUpdate title)"); }
+
+  const errs = data?.data?.productUpdate?.userErrors || [];
+  if (errs.length) {
+    throw new Error(errs.map(e => e.message).join(" | "));
+  }
+
+  return true;
+}
     
     // ---------- PRODUCT: cambiar título ----------
 if (path === "/product-set-title" && (req.method === "POST" || req.method === "GET")) {
@@ -1769,33 +1823,40 @@ if (path === "/product/set-status" && req.method === "GET") {
     )
   );
 }
-// ---------- PRODUCT: set title ----------
-if (path === "/product/set-title" && req.method === "GET") {
+    
+// ---------- PRODUCT: set title (ENDPOINT PRINCIPAL) ----------
+if ((path === "/product/set-title" || path === "/product-set-title") && req.method === "GET") {
   const pinProvided = url.searchParams.get("pin") || "";
   const validPin = env.ADMIN_PIN;
-  if (!validPin) return cors(text("Falta ADMIN_PIN en variables de entorno", 500));
-  if (!pinProvided || pinProvided !== validPin) return cors(text("PIN inválido", 403));
+  if (!validPin) return cors(json({ ok:false, message:"Falta ADMIN_PIN en variables de entorno" }, 500));
+  if (!pinProvided || pinProvided !== validPin) return cors(json({ ok:false, message:"PIN inválido" }, 403));
 
-  const productId = url.searchParams.get("productId") || "";
+  const productId = (url.searchParams.get("productId") || "").trim();
   const title = (url.searchParams.get("title") || "").trim();
 
-  if (!productId) return cors(text("Falta productId", 400));
-  if (!title) return cors(text("Falta title", 400));
+  if (!productId) return cors(json({ ok:false, message:"Falta productId" }, 400));
+  if (!title) return cors(json({ ok:false, message:"Falta title" }, 400));
+  if (title.length > 255) return cors(json({ ok:false, message:"Title demasiado largo" }, 400));
 
-  const shop = getShop(env);
-  const ok = await setProductTitle_GQL(shop, productId, title);
+  try {
+    const shop = getShop(env);
+    await setProductTitle_GQL(shop, productId, title);
 
-  return cors(
-    json(
-      {
-        ok,
-        message: ok ? "Nombre actualizado" : "No se pudo actualizar el nombre",
-        productId,
-        title,
-      },
-      ok ? 200 : 500
-    )
-  );
+    return cors(json({
+      ok: true,
+      message: "Nombre actualizado",
+      productId,
+      title,
+    }));
+  } catch (e) {
+    return cors(json({
+      ok: false,
+      message: "No se pudo actualizar el nombre",
+      error: e?.message || String(e),
+      productId,
+      title,
+    }, 500));
+  }
 }
 
   // fallback
@@ -2362,6 +2423,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
