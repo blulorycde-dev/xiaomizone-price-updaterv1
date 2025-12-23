@@ -1013,6 +1013,25 @@ function showApiResult(title, txt, okHumanMsg) {
 
     let baseCursor = null;
     let baseRows = [];
+    
+    // ===== renderBaseTable (DEBE estar en scope global) =====
+function renderBaseTable(rows) {
+  console.log("renderBaseTable called", rows?.length);
+
+  if (!baseTableDiv) return;
+
+  if (!rows || !rows.length) {
+    baseTableDiv.innerHTML =
+      "<div style='padding:10px;font-size:13px;color:#777;'>No se encontraron variantes para esta búsqueda.</div>";
+    return;
+  }
+
+  // TEMPORAL: por ahora solo mostrar cuántas filas (para validar que funciona)
+  baseTableDiv.innerHTML =
+    "<div style='padding:10px;font-size:13px;'>Filas cargadas: <b>" +
+    rows.length +
+    "</b></div>";
+}
 
     if (btnClearTable) {
       btnClearTable.addEventListener("click", () => {
@@ -2403,6 +2422,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
