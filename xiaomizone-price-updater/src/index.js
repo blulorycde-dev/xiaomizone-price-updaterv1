@@ -852,12 +852,12 @@ function showApiResult(title, txt, okHumanMsg) {
     t.includes("Error 1101");
 
   if (seemsHtml) {
-    showTextModal(
-      title || "Error",
-      "Error interno del Worker (Cloudflare 1101 / excepción).\n" +
-      "Abrí Workers Logs y buscá el Ray ID.\n\n" +
-      "Detalle técnico (HTML):\n\n" + t
-    );
+   showTextModal(
+  title || "Error",
+  "Error interno del Worker (Cloudflare 1101 / excepción).\n" +
+  "Abrí Workers Logs y buscá el Ray ID.\n\n" +
+  "Detalle técnico (HTML):\n\n" + t
+);
     return null;
   }
 
@@ -2476,6 +2476,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
