@@ -174,29 +174,22 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
       return cors(json(body));
     }
 
-    // ---------- PANEL ADMIN (HTML) ----------
+// ---------- PANEL ADMIN (HTML) ----------
+if (path === "/admin") {
+  const cache = caches.default;
+  const cacheKey = new Request(req.url, req);
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
 
-    if (path === "/admin") {
-      // Leer las variables reales del Worker para sincronizar el panel
-      const res = new Response(html, {
-  headers: {
-    "Content-Type": "text/html; charset=utf-8",
-    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-    "Pragma": "no-cache",
-  },
-});
-return res;
+  const rateEnv = norm(env.MANUAL_RATE);
+  const marginEnv = norm(env.MARGIN_FACTOR);
+  const roundEnv = parseInt(env.ROUND_TO || "100", 10) || 100;
 
-      const rateEnv = norm(env.MANUAL_RATE);
-      const marginEnv = norm(env.MARGIN_FACTOR);
-      const roundEnv = parseInt(env.ROUND_TO || "100", 10) || 100;
+  const rateForJs   = (Number.isFinite(rateEnv) && rateEnv > 0) ? rateEnv : 7200;
+  const marginForJs = (Number.isFinite(marginEnv) && marginEnv > 0) ? marginEnv : 1.25;
+  const roundForJs  = roundEnv;
 
-      const rateForJs = rateEnv && rateEnv > 0 ? rateEnv : 7200;
-      const marginForJs = marginEnv && marginEnv > 0 ? marginEnv : 1.25;
-      const roundForJs = roundEnv;
-
-      const html = `
-<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="utf-8" />
@@ -1431,18 +1424,19 @@ function escapeHtml(str) {
     }
   </script>
 </body>
-</html>
-`;
-               const res = new Response(html, {
-        headers: {
-          "Content-Type": "text/html; charset=utf-8",
-          "Cache-Control": "public, max-age=300",
-        },
-      });
-      ctx.waitUntil(cache.put(cacheKey, res.clone()));
-      return res;
-       }
+  </html>`;
 
+  const respAdmin = new Response(html, {
+    headers: {
+      "Content-Type": "text/html; charset=utf-8",
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      "Pragma": "no-cache",
+    },
+  });
+
+  ctx.waitUntil(cache.put(cacheKey, respAdmin.clone()));
+  return respAdmin;
+}
     // ---------- START protegido con PIN (modo update precios) ----------
 
     if (path === "/start" && (req.method === "POST" || req.method === "GET")) {
@@ -2407,6 +2401,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
