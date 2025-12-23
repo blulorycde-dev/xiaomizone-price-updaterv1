@@ -1087,9 +1087,10 @@ function showApiResult(title, txt, okHumanMsg) {
 
         if (btnMoreBase) btnMoreBase.disabled = !baseCursor;
 
-      } catch (err) {
+           } catch (err) {
         showTextModal("Error", "Error llamando a /base-list: " + (err?.message || err));
       }
+    } // <- FIN loadBase(reset)
 
     function renderBaseTable(rows) {
   if (!baseTableDiv) return;
@@ -1220,8 +1221,7 @@ html += "</td>";
         params.set("pin", pin);
         params.set("productId", productId);
         params.set("title", title);
-
-        const r = await fetch("/product/set-title?" + params.toString());
+const r = await fetch("/product-set-title?" + params.toString());
         const txt = await r.text();
 
         const j = showApiResult("Nombre de producto", txt, "Nombre cambiado.");
@@ -1301,82 +1301,6 @@ html += "</td>";
       }
     });
   });
-}
-
-
-// Guardar Base USD (botón Guardar)
-const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
-buttons.forEach((btn) => {
-  btn.addEventListener("click", async () => {
-    const pin = getPinOrAlert();
-    if (!pin) return;
-
-    const vid = btn.getAttribute("data-variant-id");
-    const input = baseTableDiv.querySelector(
-      "input.base-input-row[data-variant-id='" + vid + "']"
-    );
-    if (!input) { alert("No se encontró el input"); return; }
-
-    const valRaw = (input.value || "").trim();
-    const baseNum = parseFloat(String(valRaw).replace(",", "."));
-    if (!Number.isFinite(baseNum) || baseNum <= 0) { alert("Base USD inválido"); return; }
-
-    const params = new URLSearchParams();
-    params.set("pin", pin);
-    params.set("variantId", vid);
-    params.set("baseUsd", String(baseNum));
-    params.set("applyRate", "1");
-    params.set("rate", String(FIXED_RATE));
-    params.set("margin", String(FIXED_MARGIN));
-    params.set("round", String(ROUND_STEP));
-
-  try {
-  const r = await fetch("/set-base-usd?" + params.toString());
-  const txt = await r.text();
-
-  const j = showApiResult(
-    "Base USD",
-    txt,
-    "Base USD guardado y precio actualizado."
-  );
-
-  if (j && j.ok) {
-    const tr = btn.closest("tr");
-    if (!tr) return;
-
-
-        const cells = tr.querySelectorAll("td");
-        // 0 Producto
-        // 1 Estado
-        // 2 SKU
-        // 3 Precio base
-        // 4 Precio recargo
-        // 5 Base USD
-        // 6 Tasa
-        // 7 Acción
-
-        const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
-        const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
-
-        if (cells[3]) cells[3].textContent = pb.toLocaleString("es-PY");
-        if (cells[4]) cells[4].textContent = pr.toLocaleString("es-PY");
-
-        const tasa = pr / baseNum;
-        if (cells[6]) {
-          const cls = (tasa < 5000 || tasa > 15000) ? "badge badge-danger" : "badge";
-          cells[6].innerHTML = "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
-        }
-
-        input.classList.add("modified");
-        tr.classList.add("row-modified");
-        tr.setAttribute("data-modified", "1");
-        applyModifiedFilter();
-      }
-   } catch (e) {
-  showTextModal("Error", String(e?.message || e));
-}
-  });
-});
 } // <- FIN renderBaseTable(rows)
 
 // ================= HELPERS =================
@@ -2479,6 +2403,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
