@@ -178,10 +178,14 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
 
     if (path === "/admin") {
       // Leer las variables reales del Worker para sincronizar el panel
-      const cache = caches.default;
-      const cacheKey = new Request(req.url, req);
-      const cached = await cache.match(cacheKey);
-      if (cached) return cached;
+      const res = new Response(html, {
+  headers: {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+    "Pragma": "no-cache",
+  },
+});
+return res;
 
       const rateEnv = norm(env.MANUAL_RATE);
       const marginEnv = norm(env.MARGIN_FACTOR);
@@ -1014,25 +1018,6 @@ function showApiResult(title, txt, okHumanMsg) {
     let baseCursor = null;
     let baseRows = [];
     
-    // ===== renderBaseTable (DEBE estar en scope global) =====
-function renderBaseTable(rows) {
-  console.log("renderBaseTable called", rows?.length);
-
-  if (!baseTableDiv) return;
-
-  if (!rows || !rows.length) {
-    baseTableDiv.innerHTML =
-      "<div style='padding:10px;font-size:13px;color:#777;'>No se encontraron variantes para esta búsqueda.</div>";
-    return;
-  }
-
-  // TEMPORAL: por ahora solo mostrar cuántas filas (para validar que funciona)
-  baseTableDiv.innerHTML =
-    "<div style='padding:10px;font-size:13px;'>Filas cargadas: <b>" +
-    rows.length +
-    "</b></div>";
-}
-
     if (btnClearTable) {
       btnClearTable.addEventListener("click", () => {
         baseRows = [];
@@ -2422,6 +2407,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
