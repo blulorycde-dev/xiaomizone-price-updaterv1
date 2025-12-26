@@ -1121,42 +1121,46 @@ titleInputs.forEach((inp) => {
 
     inp.disabled = true;
 
-    try {
-      const params = new URLSearchParams();
-      params.set("pin", pin);
-      params.set("productId", productId);
-      params.set("title", title);
+   try {
+  const params = new URLSearchParams();
+  params.set("pin", pin);
+  params.set("productId", productId);
+  params.set("title", title);
 
-      const r = await fetch("/product-set-title?" + params.toString());
-      const txt = await r.text();
+  const r = await fetch("/product-set-title?" + params.toString());
+  const txt = await r.text();
 
-      let j;
-      try { j = JSON.parse(txt); }
-      catch { alert("Respuesta no válida del servidor:\n\n" + txt); return; }
+  let j;
+  try {
+    j = JSON.parse(txt);
+  } catch {
+    alert("Respuesta no válida del servidor:\\n\\n" + txt);
+    return;
+  }
 
-      if (!j.ok) {
-        alert("Error al cambiar nombre:\n\n" + (j.message || "Error desconocido"));
-        return;
-      }
+  if (!j.ok) {
+    alert("Error al cambiar nombre:\\n\\n" + (j.message || "Error desconocido"));
+    return;
+  }
 
-      alert("Nombre cambiado correctamente.");
+  alert("Nombre cambiado correctamente.");
 
-      const tr = inp.closest("tr");
-      if (tr) {
-        tr.classList.add("row-modified");
-        tr.setAttribute("data-modified", "1");
-        applyModifiedFilter();
-      }
-    } catch (err) {
-      alert("Error actualizando nombre:\n\n" + (err?.message || err));
-    } finally {
-      inp.disabled = false;
-      inp.blur();
-    }
+  const tr = inp.closest("tr");
+  if (tr) {
+    tr.classList.add("row-modified");
+    tr.setAttribute("data-modified", "1");
+    applyModifiedFilter();
+  }
+} catch (err) {
+  alert("Error actualizando nombre:\\n\\n" + (err?.message || err));
+} finally {
+  inp.disabled = false;
+  inp.blur();
+}
   });
 });
 
-  // Guardar Base USD (botón Guardar)
+// Guardar Base USD (botón Guardar)
 const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
 buttons.forEach((btn) => {
   btn.addEventListener("click", async () => {
@@ -1190,12 +1194,12 @@ buttons.forEach((btn) => {
       try {
         j = JSON.parse(txt);
       } catch {
-        alert("Respuesta no válida del servidor:\n\n" + txt);
+        alert("Respuesta no válida del servidor:\\n\\n" + txt);
         return;
       }
 
       if (!j.ok) {
-        alert("Error guardando Base USD:\n\n" + (j.message || "Error desconocido"));
+        alert("Error guardando Base USD:\\n\\n" + (j.message || "Error desconocido"));
         return;
       }
 
@@ -1223,7 +1227,7 @@ buttons.forEach((btn) => {
       tr.setAttribute("data-modified", "1");
       applyModifiedFilter();
     } catch (e) {
-      alert("Error:\n\n" + String(e?.message || e));
+      alert("Error:\\n\\n" + String(e?.message || e));
     }
   });
 });
@@ -1249,8 +1253,8 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
-    // --------- HISTORIAL DE CAMBIOS (LOG) ----------
 
+// --------- HISTORIAL DE CAMBIOS (LOG) ----------
 if (btnLoadLog) {
   btnLoadLog.addEventListener("click", async () => {
     const pin = getPinOrAlert();
@@ -1269,7 +1273,7 @@ if (btnLoadLog) {
       try {
         entries = JSON.parse(txt);
       } catch (_) {
-        alert("Respuesta no válida de /log:\n\n" + String(txt || ""));
+        alert("Respuesta no válida de /log:\\n\\n" + String(txt || ""));
         console.log(txt);
         return;
       }
@@ -1317,15 +1321,10 @@ if (btnLoadLog) {
 
         let line = "<strong>" + escapeHtml(product) + "</strong>";
 
-        if (baseUsd) {
-          line += " — " + baseUsd + " USD";
-        }
-        if (afterP) {
-          line += " — precio: " + afterP + " Gs";
-        }
-        if (beforeP) {
-          line += " (antes: " + beforeP + " Gs)";
-        }
+        if (baseUsd) line += " — " + baseUsd + " USD";
+        if (afterP) line += " — precio: " + afterP + " Gs";
+        if (beforeP) line += " (antes: " + beforeP + " Gs)";
+
         if (status) {
           line +=
             " — <span style='color:#555;'>" +
@@ -1348,7 +1347,7 @@ if (btnLoadLog) {
 
       logList.innerHTML = html;
     } catch (err) {
-      alert("Error cargando historial:\n\n" + String(err?.message || err));
+      alert("Error cargando historial:\\n\\n" + String(err?.message || err));
     }
   });
 }
@@ -2339,6 +2338,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
