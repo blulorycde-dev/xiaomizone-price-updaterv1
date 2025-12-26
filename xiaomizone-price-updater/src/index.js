@@ -698,22 +698,20 @@ input[type="number"] {
     const btnLoadLog = document.getElementById("btn-load-log");
     const logList    = document.getElementById("log-list");
 
-    // Prellenar formulario de actualización con valores de entorno
-    if (formUpdate) {
-      const rateInput   = formUpdate.querySelector('input[name="rate"]');
-      const marginInput = formUpdate.querySelector('input[name="margin"]');
-      const roundInput  = formUpdate.querySelector('input[name="round"]');
-      if (rateInput)   rateInput.value   = FIXED_RATE;
-      if (marginInput) marginInput.value = FIXED_MARGIN.toFixed(2);
-      if (roundInput)  roundInput.value  = ROUND_STEP;
-    }
+   // Prellenar formulario de actualización con valores de entorno
+if (formUpdate) {
+  const rateInput   = formUpdate.querySelector('input[name="rate"]');
+  const marginInput = formUpdate.querySelector('input[name="margin"]');
+  const roundInput  = formUpdate.querySelector('input[name="round"]');
+  if (rateInput)   rateInput.value   = FIXED_RATE;
+  if (marginInput) marginInput.value = FIXED_MARGIN.toFixed(2);
+  if (roundInput)  roundInput.value  = ROUND_STEP;
+}
 
-  function getPinOrAlert() {
+function getPinOrAlert() {
   const pin = pinInput ? pinInput.value.trim() : "";
   if (!pin) {
-    alert(`Falta PIN.
-
-Ingresá el PIN de administrador.`);
+    alert("Falta PIN.\n\nIngresá el PIN de administrador.");
     return null;
   }
   return pin;
@@ -2349,6 +2347,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
