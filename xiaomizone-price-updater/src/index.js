@@ -176,11 +176,10 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
 
 // ---------- PANEL ADMIN (HTML) ----------
 if (path === "/admin") {
-  // DESACTIVAR CACHE mientras se corrige el panel
-  // const cache = caches.default;
-  // const cacheKey = new Request(req.url, req);
-  // const cached = await cache.match(cacheKey);
-  // if (cached) return cached;
+ const cache = caches.default;
+const cacheKey = new Request(req.url, req);
+const cached = await cache.match(cacheKey);
+if (cached) return cached;
   
   const rateEnv = norm(env.MANUAL_RATE);
   const marginEnv = norm(env.MARGIN_FACTOR);
@@ -2410,6 +2409,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
