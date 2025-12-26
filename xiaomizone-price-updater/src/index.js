@@ -1320,28 +1320,13 @@ if (btnLoadLog) {
         const timeTxt = entry.time || "";
 
         let line = "<strong>" + escapeHtml(product) + "</strong>";
-
         if (baseUsd) line += " — " + baseUsd + " USD";
         if (afterP) line += " — precio: " + afterP + " Gs";
         if (beforeP) line += " (antes: " + beforeP + " Gs)";
+        if (status) line += " — <span style='color:#555;'>" + escapeHtml(status) + "</span>";
+        if (timeTxt) line += "<br><span style='color:#999;font-size:11px;'>" + escapeHtml(timeTxt) + "</span>";
 
-        if (status) {
-          line +=
-            " — <span style='color:#555;'>" +
-            escapeHtml(status) +
-            "</span>";
-        }
-        if (timeTxt) {
-          line +=
-            "<br><span style='color:#999;font-size:11px;'>" +
-            escapeHtml(timeTxt) +
-            "</span>";
-        }
-
-        html +=
-          "<li style='padding:4px 0;border-bottom:1px solid #eee;'>" +
-          line +
-          "</li>";
+        html += "<li style='padding:4px 0;border-bottom:1px solid #eee;'>" + line + "</li>";
       }
       html += "</ul>";
 
@@ -1351,7 +1336,7 @@ if (btnLoadLog) {
     }
   });
 }
-  </script>
+</script>
 </body>
   </html>`;
 
@@ -2338,6 +2323,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
