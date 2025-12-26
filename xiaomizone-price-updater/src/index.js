@@ -1270,7 +1270,7 @@ if (btnLoadLog) {
       try {
         entries = JSON.parse(txt);
       } catch (_) {
-        alert("Respuesta no válida de /log:\\n\\n" + String(txt || ""));
+        alert("Respuesta no válida de /log:\\\\n\\\\n" + String(txt || ""));
         console.log(txt);
         return;
       }
@@ -1327,11 +1327,13 @@ if (btnLoadLog) {
       }
       html += "</ul>";
 
-    logList.innerHTML = html;
-} catch (err) {
-  const msg = String(err?.message || err);
-  alert("Error cargando historial:" + "\\n\\n" + msg);
-}
+      // ✅ esto tiene que quedar dentro del try
+      logList.innerHTML = html;
+
+    } catch (err) {
+      const msg = String(err?.message || err);
+      alert("Error cargando historial:" + "\\\\n\\\\n" + msg);
+    }
   });
 }
 </script>
@@ -2321,6 +2323,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
