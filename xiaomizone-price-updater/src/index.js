@@ -176,10 +176,11 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
 
 // ---------- PANEL ADMIN (HTML) ----------
 if (path === "/admin") {
-  const cache = caches.default;
-  const cacheKey = new Request(req.url, req);
-  const cached = await cache.match(cacheKey);
-  if (cached) return cached;
+  // CACHE OFF (debug)
+  // const cache = caches.default;
+  // const cacheKey = new Request(req.url, req);
+  // const cached = await cache.match(cacheKey);
+  // if (cached) return cached;
 
   const rateEnv = norm(env.MANUAL_RATE);
   const marginEnv = norm(env.MARGIN_FACTOR);
@@ -707,136 +708,21 @@ input[type="number"] {
       if (roundInput)  roundInput.value  = ROUND_STEP;
     }
 
-    function getPinOrAlert() {
-      const pin = pinInput ? pinInput.value.trim() : "";
-    if (!pin) {
-  showTextModal("Falta PIN", "Ingresá el PIN de administrador.");
-  return null;
-}
-      return pin;
-    }
-
-    function roundToClient(n, step) {
-      if (!step || step <= 1) return Math.round(n);
-      return Math.round(n / step) * step;
-    }
-    
-// ===== MODAL COPIABLE (reemplaza alert largos) =====
-function showTextModal(title, text) {
-  // crea overlay si no existe
-  let overlay = document.getElementById("text-modal-overlay");
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.id = "text-modal-overlay";
-    overlay.style.cssText =
-      "position:fixed; inset:0; background:rgba(0,0,0,.45);" +
-      "display:none; align-items:center; justify-content:center;" +
-      "padding:16px; z-index:9999;";
-
-    const modal = document.createElement("div");
-    modal.style.cssText =
-      "width:min(900px, 96vw); max-height:80vh; overflow:auto;" +
-      "background:#0b1220; color:#e5e7eb;" +
-      "border:1px solid rgba(255,255,255,.12);" +
-      "border-radius:14px; box-shadow:0 20px 60px rgba(0,0,0,.45);";
-
-    const header = document.createElement("div");
-    header.style.cssText =
-      "display:flex; align-items:center; justify-content:space-between;" +
-      "padding:12px 14px; border-bottom:1px solid rgba(255,255,255,.12);";
-
-    const h = document.createElement("div");
-    h.id = "text-modal-title";
-    h.style.cssText = "font-weight:700; font-size:14px;";
-    h.textContent = "Detalle";
-
-    const close = document.createElement("button");
-    close.type = "button";
-    close.textContent = "Cerrar";
-    close.style.cssText =
-      "background:#111827; color:#fff; border:1px solid rgba(255,255,255,.18);" +
-      "border-radius:10px; padding:8px 10px; cursor:pointer; font-weight:700;";
-
-    const body = document.createElement("div");
-    body.style.cssText = "padding:12px 14px;";
-
-    const ta = document.createElement("textarea");
-    ta.id = "text-modal-ta";
-    ta.readOnly = true;
-    ta.style.cssText =
-      "width:100%; min-height:240px; resize:vertical;" +
-      "margin:0; white-space:pre-wrap; word-break:break-word;" +
-      "font-size:12px; line-height:1.35;" +
-      "background:#0f172a; color:#e5e7eb;" +
-      "border:1px solid rgba(255,255,255,.12);" +
-      "border-radius:12px; padding:12px;" +
-      "user-select:text;";
-
-    const actions = document.createElement("div");
-    actions.style.cssText =
-      "display:flex; gap:8px; justify-content:flex-end; margin-top:10px;";
-
-    const copyBtn = document.createElement("button");
-    copyBtn.type = "button";
-    copyBtn.textContent = "Copiar";
-    copyBtn.style.cssText =
-      "background:#2563eb; color:#fff; border:none;" +
-      "border-radius:10px; padding:8px 10px; cursor:pointer; font-weight:700;";
-
-    copyBtn.addEventListener("click", async () => {
-      try {
-        await navigator.clipboard.writeText(ta.value || "");
-        copyBtn.textContent = "Copiado";
-        setTimeout(() => (copyBtn.textContent = "Copiar"), 900);
-      } catch (e) {
-        ta.focus();
-        ta.select();
-        alert("No se pudo copiar automático. Probá Ctrl+C.");
-      }
-    });
-
-    function doClose() {
-      overlay.style.display = "none";
-      document.removeEventListener("keydown", overlay._onKey);
-    }
-
-    function onKey(ev) {
-      if (ev.key === "Escape") doClose();
-    }
-
-    overlay._onKey = onKey;
-
-    close.addEventListener("click", doClose);
-    overlay.addEventListener("click", (ev) => {
-      if (ev.target === overlay) doClose();
-    });
-
-    actions.appendChild(copyBtn);
-
-    header.appendChild(h);
-    header.appendChild(close);
-
-    body.appendChild(ta);
-    body.appendChild(actions);
-
-    modal.appendChild(header);
-    modal.appendChild(body);
-    overlay.appendChild(modal);
-    document.body.appendChild(overlay);
+   function getPinOrAlert() {
+  const pin = pinInput ? pinInput.value.trim() : "";
+  if (!pin) {
+    alert("Falta PIN.\n\nIngresá el PIN de administrador.");
+    return null;
   }
-
-  overlay.querySelector("#text-modal-title").textContent = title || "Detalle";
-  overlay.querySelector("#text-modal-ta").value = String(text ?? "");
-  overlay.style.display = "flex";
-
-  const ta = overlay.querySelector("#text-modal-ta");
-  ta.focus();
-  ta.select();
-
-  document.addEventListener("keydown", overlay._onKey);
+  return pin;
 }
 
-// ===== Helper para mostrar respuestas (JSON o HTML) usando el modal =====
+function roundToClient(n, step) {
+  if (!step || step <= 1) return Math.round(n);
+  return Math.round(n / step) * step;
+}
+  
+// ===== Helper para mostrar respuestas (JSON o HTML) usando alert() =====
 function showApiResult(title, txt, okHumanMsg) {
   const t = String(txt || "");
 
@@ -849,8 +735,8 @@ function showApiResult(title, txt, okHumanMsg) {
     t.includes("Error 1101");
 
   if (seemsHtml) {
-    showTextModal(
-      title || "Error",
+    alert(
+      (title || "Error") + "\n\n" +
       "Error interno del Worker (Cloudflare 1101 / excepción).\n" +
       "Abrí Workers Logs y buscá el Ray ID.\n\n" +
       "Detalle técnico (HTML):\n\n" + t
@@ -869,119 +755,147 @@ function showApiResult(title, txt, okHumanMsg) {
       human = okHumanMsg || "Operación exitosa.";
     }
 
-    showTextModal(
-      title || "Resultado",
+    alert(
+      (title || "Resultado") + "\n\n" +
       human + "\n\nDetalle:\n" + JSON.stringify(j, null, 2)
     );
 
     return j;
   } catch (e) {
     // Texto plano
-    showTextModal(title || "Resultado", t);
+    alert((title || "Resultado") + "\n\n" + t);
     return null;
   }
 }
 
+   // --------- UPDATE ----------
 
-    // --------- UPDATE ----------
+if (formUpdate) {
+  formUpdate.addEventListener("submit", async (e) => {
+    e.preventDefault();
 
-    if (formUpdate) {
-      formUpdate.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const pin = getPinOrAlert();
-        if (!pin) return;
+    const pin = getPinOrAlert();
+    if (!pin) return;
 
-        const form = new FormData(formUpdate);
-        form.append("pin", pin);
-        const params = new URLSearchParams(form);
-        const url = "/start?" + params.toString();
+    const form = new FormData(formUpdate);
+    form.append("pin", pin);
+    const params = new URLSearchParams(form);
+    const url = "/start?" + params.toString();
 
-        try {
-          const r = await fetch(url);
-          const txt = await r.text();
-          let j;
-          try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-         showTextModal(
-  "Respuesta",
-  j.message || JSON.stringify(j, null, 2)
-);
-        } catch (err) {
-         showTextModal("Error", "Error llamando al worker: " + err);
-        }
-      });
-    }
-
-    // --------- RESET ----------
-
-    if (formReset) {
-      formReset.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const pin = getPinOrAlert();
-        if (!pin) return;
-
-        const form = new FormData(formReset);
-        form.append("pin", pin);
-        form.append("margin", "1.00");
-        form.append("round", "0");
-        const params = new URLSearchParams(form);
-        const url = "/reset-base?" + params.toString();
-        try {
-          const r = await fetch(url);
-          const txt = await r.text();
-          let j;
-          try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-         showTextModal(
-  "Respuesta",
-  j.message || JSON.stringify(j, null, 2)
-);
-        } catch (err) {
-          showTextModal("Error", "Error llamando al worker: " + err);
-        }
-      });
-    }
-
-    // --------- SET BASE (1 variante manual) ----------
-
-    if (formBase) {
-      formBase.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const pin = getPinOrAlert();
-        if (!pin) return;
-
-        const form = new FormData(formBase);
-        form.append("pin", pin);
-        form.append("applyRate", "1");
-        const params = new URLSearchParams(form);
-        const url = "/set-base-usd?" + params.toString();
-        try {
-          const r = await fetch(url);
-          const txt = await r.text();
-          let j;
-          try { j = JSON.parse(txt); } catch (_) { j = { message: txt }; }
-          showTextModal(
-  "Respuesta",
-  j.message || JSON.stringify(j, null, 2)
-);
-        } catch (err) {showTextModal("Error", "Error llamando al worker: " + err);
-        }
-      });
-    }
-
-    // --------- STATUS / CANCEL ----------
-
-   if (btnStatus) {
-  btnStatus.addEventListener("click", async () => {
     try {
-      const r = await fetch("/status");
+      const r = await fetch(url);
       const txt = await r.text();
-      showTextModal("Estado del job", txt);
+
+      let msg = txt;
+      try {
+        const j = JSON.parse(txt);
+        msg = j.message || JSON.stringify(j, null, 2);
+      } catch (_) {
+        // txt no es JSON, usar tal cual
+      }
+
+      alert("Respuesta del worker:\n\n" + msg);
     } catch (err) {
-      showTextModal("Error", "Error consultando status: " + (err?.message || err));
+      alert("Error llamando al worker:\n\n" + (err?.message || err));
     }
   });
 }
 
-    if (btnCancel) {
+
+   // --------- RESET ----------
+
+if (formReset) {
+  formReset.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const pin = getPinOrAlert();
+    if (!pin) return;
+
+    const form = new FormData(formReset);
+    form.append("pin", pin);
+    form.append("margin", "1.00");
+    form.append("round", "0");
+
+    const params = new URLSearchParams(form);
+    const url = "/reset-base?" + params.toString();
+
+    try {
+      const r = await fetch(url);
+      const txt = await r.text();
+
+      let msg = txt;
+      try {
+        const j = JSON.parse(txt);
+        msg = j.message || JSON.stringify(j, null, 2);
+      } catch (_) {
+        // no es JSON, usar texto plano
+      }
+
+      alert("Respuesta del worker:\n\n" + msg);
+    } catch (err) {
+      alert("Error llamando al worker:\n\n" + (err?.message || err));
+    }
+  });
+}
+
+
+    // --------- SET BASE (1 variante manual) ----------
+
+if (formBase) {
+  formBase.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const pin = getPinOrAlert();
+    if (!pin) return;
+
+    const form = new FormData(formBase);
+    form.append("pin", pin);
+    form.append("applyRate", "1");
+
+    const params = new URLSearchParams(form);
+    const url = "/set-base-usd?" + params.toString();
+
+    try {
+      const r = await fetch(url);
+      const txt = await r.text();
+
+      let msg = txt;
+      try {
+        const j = JSON.parse(txt);
+        msg = j.message || JSON.stringify(j, null, 2);
+      } catch (_) {
+        // respuesta no JSON → usar texto plano
+      }
+
+      alert("Respuesta del worker:\n\n" + msg);
+    } catch (err) {
+      alert("Error llamando al worker:\n\n" + (err?.message || err));
+    }
+  });
+}
+
+   // --------- STATUS / CANCEL ----------
+
+if (btnStatus) {
+  btnStatus.addEventListener("click", async () => {
+    try {
+      const r = await fetch("/status");
+      const txt = await r.text();
+
+      // si es JSON, lo formateamos lindo
+      let out = txt;
+      try {
+        out = JSON.stringify(JSON.parse(txt), null, 2);
+      } catch (_) {}
+
+      alert("Estado del job:\n\n" + out);
+    } catch (err) {
+      alert("Error consultando status:\n\n" + (err?.message || err));
+    }
+  });
+}
+
+if (btnCancel) {
   btnCancel.addEventListener("click", async () => {
     const pin = getPinOrAlert();
     if (!pin) return;
@@ -990,104 +904,102 @@ function showApiResult(title, txt, okHumanMsg) {
       const r = await fetch("/cancel?pin=" + encodeURIComponent(pin));
       const txt = await r.text();
 
-      const j = showApiResult(
-        "Cancelar job",
-        txt,
-        "Job cancelado."
-      );
+      let msg = txt;
+      try {
+        const j = JSON.parse(txt);
+        msg = j.message || JSON.stringify(j, null, 2);
+      } catch (_) {}
 
-      // si querés hacer algo extra cuando ok:
-      if (j && j.ok) {
-        // por ejemplo: nada
-      }
+      alert("Cancelar job:\n\n" + msg);
     } catch (err) {
-      showTextModal("Error", "Error cancelando job: " + (err?.message || err));
+      alert("Error cancelando job:\n\n" + (err?.message || err));
     }
   });
 }
 
-    // --------- LISTA DE PRODUCTOS (paginada) ----------
+   // --------- LISTA DE PRODUCTOS (paginada) ----------
 
-    let baseCursor = null;
-    let baseRows = [];
-    
-    if (btnClearTable) {
-      btnClearTable.addEventListener("click", () => {
-        baseRows = [];
-        baseCursor = null;
-        baseTableDiv.innerHTML = "";
-        if (btnMoreBase) btnMoreBase.disabled = true;
-      });
-    }
+let baseCursor = null;
+let baseRows = [];
 
-    if (btnLoadBase) {
-      btnLoadBase.addEventListener("click", () => {
-        baseRows = [];
-        baseCursor = null;
-        loadBase(true);
-      });
-    }
-
-    if (btnMoreBase) {
-      btnMoreBase.addEventListener("click", () => {
-        if (!baseCursor) {
-  showTextModal("Info", "No hay más productos para cargar.");
-  return;
+if (btnClearTable) {
+  btnClearTable.addEventListener("click", () => {
+    baseRows = [];
+    baseCursor = null;
+    baseTableDiv.innerHTML = "";
+    if (btnMoreBase) btnMoreBase.disabled = true;
+  });
 }
-        loadBase(false);
-      });
+
+if (btnLoadBase) {
+  btnLoadBase.addEventListener("click", () => {
+    baseRows = [];
+    baseCursor = null;
+    loadBase(true);
+  });
+}
+
+if (btnMoreBase) {
+  btnMoreBase.addEventListener("click", () => {
+    if (!baseCursor) {
+      alert("Info:\n\nNo hay más productos para cargar.");
+      return;
+    }
+    loadBase(false);
+  });
+}
+
+if (toggleModified) {
+  toggleModified.addEventListener("change", () => {
+    applyModifiedFilter();
+  });
+}
+
+async function loadBase(reset) {
+  const pin = getPinOrAlert();
+  if (!pin) return;
+
+  const q = ((baseQ && baseQ.value) || "").trim();
+  const status = statusFilter ? (statusFilter.value || "") : "";
+
+  const params = new URLSearchParams();
+  params.set("pin", pin);
+  params.set("limit", "50");
+  if (q) params.set("q", q);
+  if (status) params.set("status", status);
+  if (!reset && baseCursor) params.set("cursor", baseCursor);
+
+  try {
+    const r = await fetch("/base-list?" + params.toString());
+    const txt = await r.text();
+
+    let j;
+    try {
+      j = JSON.parse(txt);
+    } catch (_) {
+      console.log("Respuesta no válida /base-list:", txt);
+      alert("Respuesta no válida de /base-list:\n\n" + String(txt || ""));
+      return;
     }
 
-    if (toggleModified) {
-      toggleModified.addEventListener("change", () => {
-        applyModifiedFilter();
-      });
+    if (!j.ok) {
+      alert("Resultado:\n\n" + (j.message || "Error en /base-list"));
+      return;
     }
 
-    async function loadBase(reset) {
-      const pin = getPinOrAlert();
-      if (!pin) return;
+    const rows = j.rows || [];
+    if (reset) baseRows = rows;
+    else baseRows = baseRows.concat(rows);
 
-      const q = (baseQ && baseQ.value || "").trim();
-      const status = statusFilter ? (statusFilter.value || "") : "";
+    baseCursor = j.nextCursor || null;
+    renderBaseTable(baseRows);
 
-      const params = new URLSearchParams();
-      params.set("pin", pin);
-      params.set("limit", "50");
-      if (q) params.set("q", q);
-      if (status) params.set("status", status);
-      if (!reset && baseCursor) params.set("cursor", baseCursor);
+    if (btnMoreBase) btnMoreBase.disabled = !baseCursor;
 
-            try {
-        const r = await fetch("/base-list?" + params.toString());
-        const txt = await r.text();
-
-        let j;
-        try { j = JSON.parse(txt); }
-        catch (_) {
-          showTextModal("Respuesta no válida de /base-list", String(txt || ""));
-          console.log(txt);
-          return;
-        }
-
-        if (!j.ok) {
-          showTextModal("Resultado", j.message || "Error en /base-list");
-          return;
-        }
-
-        const rows = j.rows || [];
-        if (reset) baseRows = rows;
-        else baseRows = baseRows.concat(rows);
-
-        baseCursor = j.nextCursor || null;
-        renderBaseTable(baseRows);
-
-        if (btnMoreBase) btnMoreBase.disabled = !baseCursor;
-
-           } catch (err) {
-        showTextModal("Error", "Error llamando a /base-list: " + (err?.message || err));
-      }
-    } // <- FIN loadBase(reset)
+  } catch (err) {
+    alert("Error llamando a /base-list:\n\n" + (err?.message || err));
+  }
+} // <- FIN loadBase(reset)
 
     function renderBaseTable(rows) {
   if (!baseTableDiv) return;
@@ -1194,111 +1106,136 @@ html += "</td>";
   
  baseTableDiv.innerHTML = html;
 
-  // Guardar NOMBRE con Enter (columna Producto)
-  const titleInputs = baseTableDiv.querySelectorAll(".title-input");
-  titleInputs.forEach((inp) => {
-    inp.addEventListener("keydown", async (ev) => {
-      if (ev.key !== "Enter") return;
-      if (ev.shiftKey) return; // Shift+Enter: no guardar
-      ev.preventDefault();
+ // Guardar NOMBRE con Enter (columna Producto)
+const titleInputs = baseTableDiv.querySelectorAll(".title-input");
+titleInputs.forEach((inp) => {
+  inp.addEventListener("keyup", async (ev) => {
+    if (ev.key !== "Enter") return;
+    if (ev.shiftKey) return; // Shift+Enter: permitir salto de línea
+    ev.preventDefault();
 
-      const pin = getPinOrAlert();
-      if (!pin) return;
+    // En textarea, Enter normalmente agrega salto de línea:
+    // lo borramos para que no quede el \n al final
+    inp.value = (inp.value || "").replace(/\n+$/g, "");
 
-      const productId = inp.getAttribute("data-product-id");
-      const title = (inp.value || "").trim();
+    const pin = getPinOrAlert();
+    if (!pin) return;
 
-      if (!productId) { alert("Falta productId"); return; }
-      if (!title) { alert("El nombre no puede estar vacío"); return; }
+    const productId = inp.getAttribute("data-product-id");
+    const title = (inp.value || "").trim();
 
-      inp.disabled = true;
+    if (!productId) { alert("Falta productId"); return; }
+    if (!title) { alert("El nombre no puede estar vacío"); return; }
 
-      try {
-        const params = new URLSearchParams();
-        params.set("pin", pin);
-        params.set("productId", productId);
-        params.set("title", title);
-const r = await fetch("/product-set-title?" + params.toString());
-        const txt = await r.text();
+    inp.disabled = true;
 
-        const j = showApiResult("Nombre de producto", txt, "Nombre cambiado.");
-        if (!j || !j.ok) return;
-
-        const tr = inp.closest("tr");
-        if (tr) {
-          tr.classList.add("row-modified");
-          tr.setAttribute("data-modified", "1");
-          applyModifiedFilter();
-        }
-      } catch (err) {
-        showTextModal("Error", "Error actualizando nombre: " + err);
-      } finally {
-        inp.disabled = false;
-        inp.blur();
-      }
-    });
-  });
-
-  // Guardar Base USD (botón Guardar)
-  const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
-  buttons.forEach((btn) => {
-    btn.addEventListener("click", async () => {
-      const pin = getPinOrAlert();
-      if (!pin) return;
-
-      const vid = btn.getAttribute("data-variant-id");
-      const input = baseTableDiv.querySelector(
-        "input.base-input-row[data-variant-id='" + vid + "']"
-      );
-      if (!input) { alert("No se encontró el input"); return; }
-
-      const valRaw = (input.value || "").trim();
-      const baseNum = parseFloat(String(valRaw).replace(",", "."));
-      if (!Number.isFinite(baseNum) || baseNum <= 0) { alert("Base USD inválido"); return; }
-
+    try {
       const params = new URLSearchParams();
       params.set("pin", pin);
-      params.set("variantId", vid);
-      params.set("baseUsd", String(baseNum));
-      params.set("applyRate", "1");
-      params.set("rate", String(FIXED_RATE));
-      params.set("margin", String(FIXED_MARGIN));
-      params.set("round", String(ROUND_STEP));
+      params.set("productId", productId);
+      params.set("title", title);
 
-      try {
-        const r = await fetch("/set-base-usd?" + params.toString());
-        const txt = await r.text();
+      const r = await fetch("/product-set-title?" + params.toString());
+      const txt = await r.text();
 
-        const j = showApiResult("Base USD", txt, "Base USD guardado y precio actualizado.");
-        if (!j || !j.ok) return;
+      let j;
+      try { j = JSON.parse(txt); }
+      catch { alert("Respuesta no válida del servidor:\n\n" + txt); return; }
 
-        const tr = btn.closest("tr");
-        if (!tr) return;
+      if (!j.ok) {
+        alert("Error al cambiar nombre:\n\n" + (j.message || "Error desconocido"));
+        return;
+      }
 
-        const cells = tr.querySelectorAll("td");
+      alert("Nombre cambiado correctamente.");
 
-        const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
-        const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
-
-        if (cells[3]) cells[3].textContent = pb.toLocaleString("es-PY");
-        if (cells[4]) cells[4].textContent = pr.toLocaleString("es-PY");
-
-        const tasa = pr / baseNum;
-        if (cells[6]) {
-          const cls = (tasa < 5000 || tasa > 15000) ? "badge badge-danger" : "badge";
-          cells[6].innerHTML = "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
-        }
-
-        input.classList.add("modified");
+      const tr = inp.closest("tr");
+      if (tr) {
         tr.classList.add("row-modified");
         tr.setAttribute("data-modified", "1");
         applyModifiedFilter();
-      } catch (e) {
-        showTextModal("Error", String(e?.message || e));
       }
-    });
+    } catch (err) {
+      alert("Error actualizando nombre:\n\n" + (err?.message || err));
+    } finally {
+      inp.disabled = false;
+      inp.blur();
+    }
   });
-} // <- FIN renderBaseTable(rows)
+});
+
+  // Guardar Base USD (botón Guardar)
+const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
+buttons.forEach((btn) => {
+  btn.addEventListener("click", async () => {
+    const pin = getPinOrAlert();
+    if (!pin) return;
+
+    const vid = btn.getAttribute("data-variant-id");
+    const input = baseTableDiv.querySelector(
+      "input.base-input-row[data-variant-id='" + vid + "']"
+    );
+    if (!input) { alert("No se encontró el input"); return; }
+
+    const valRaw = (input.value || "").trim();
+    const baseNum = parseFloat(String(valRaw).replace(",", "."));
+    if (!Number.isFinite(baseNum) || baseNum <= 0) { alert("Base USD inválido"); return; }
+
+    const params = new URLSearchParams();
+    params.set("pin", pin);
+    params.set("variantId", vid);
+    params.set("baseUsd", String(baseNum));
+    params.set("applyRate", "1");
+    params.set("rate", String(FIXED_RATE));
+    params.set("margin", String(FIXED_MARGIN));
+    params.set("round", String(ROUND_STEP));
+
+    try {
+      const r = await fetch("/set-base-usd?" + params.toString());
+      const txt = await r.text();
+
+      let j;
+      try {
+        j = JSON.parse(txt);
+      } catch {
+        alert("Respuesta no válida del servidor:\n\n" + txt);
+        return;
+      }
+
+      if (!j.ok) {
+        alert("Error guardando Base USD:\n\n" + (j.message || "Error desconocido"));
+        return;
+      }
+
+      alert(j.message || "Base USD guardado y precio actualizado.");
+
+      const tr = btn.closest("tr");
+      if (!tr) return;
+
+      const cells = tr.querySelectorAll("td");
+
+      const pb = roundToClient(baseNum * FIXED_RATE, ROUND_STEP);
+      const pr = roundToClient(baseNum * FIXED_RATE * FIXED_MARGIN, ROUND_STEP);
+
+      if (cells[3]) cells[3].textContent = pb.toLocaleString("es-PY");
+      if (cells[4]) cells[4].textContent = pr.toLocaleString("es-PY");
+
+      const tasa = pr / baseNum;
+      if (cells[6]) {
+        const cls = (tasa < 5000 || tasa > 15000) ? "badge badge-danger" : "badge";
+        cells[6].innerHTML = "<span class='" + cls + "'>" + tasa.toFixed(2) + "</span>";
+      }
+
+      input.classList.add("modified");
+      tr.classList.add("row-modified");
+      tr.setAttribute("data-modified", "1");
+      applyModifiedFilter();
+    } catch (e) {
+      alert("Error:\n\n" + String(e?.message || e));
+    }
+  });
+});
+
 
 // ================= HELPERS =================
 function applyModifiedFilter() {
@@ -1322,106 +1259,107 @@ function escapeHtml(str) {
 }
     // --------- HISTORIAL DE CAMBIOS (LOG) ----------
 
-    if (btnLoadLog) {
-      btnLoadLog.addEventListener("click", async () => {
-        const pin = getPinOrAlert();
-        if (!pin) return;
+if (btnLoadLog) {
+  btnLoadLog.addEventListener("click", async () => {
+    const pin = getPinOrAlert();
+    if (!pin) return;
 
-        const rangeVal = logRange ? parseInt(logRange.value || "0", 10) : 0;
+    const rangeVal = logRange ? parseInt(logRange.value || "0", 10) : 0;
 
-        const params = new URLSearchParams();
-        params.set("pin", pin);
+    const params = new URLSearchParams();
+    params.set("pin", pin);
 
-        try {
-          const r = await fetch("/log?" + params.toString());
-          const txt = await r.text();
-          let entries;
-          try {
-            entries = JSON.parse(txt);
-         } catch (_) {
-  showTextModal("Respuesta no válida de /log", String(txt || ""));
-  console.log(txt);
-  return;
-}
+    try {
+      const r = await fetch("/log?" + params.toString());
+      const txt = await r.text();
 
-          if (!Array.isArray(entries)) entries = [];
+      let entries;
+      try {
+        entries = JSON.parse(txt);
+      } catch (_) {
+        alert("Respuesta no válida de /log:\n\n" + String(txt || ""));
+        console.log(txt);
+        return;
+      }
 
-          const now = Date.now();
-          let filtered = entries;
+      if (!Array.isArray(entries)) entries = [];
 
-          if (rangeVal > 0) {
-            const maxAgeMs = rangeVal * 60 * 60 * 1000;
-            filtered = entries.filter((e) => {
-              if (!e.iso) return false;
-              const t = Date.parse(e.iso);
-              if (!t || Number.isNaN(t)) return false;
-              return now - t <= maxAgeMs;
-            });
-          }
+      const now = Date.now();
+      let filtered = entries;
 
-          if (!filtered.length) {
-            logList.innerHTML =
-              "<div style='padding:6px;color:#777;'>No hay registros para el rango seleccionado.</div>";
-            return;
-          }
+      if (rangeVal > 0) {
+        const maxAgeMs = rangeVal * 60 * 60 * 1000;
+        filtered = entries.filter((e) => {
+          if (!e.iso) return false;
+          const t = Date.parse(e.iso);
+          if (!t || Number.isNaN(t)) return false;
+          return now - t <= maxAgeMs;
+        });
+      }
 
-          const sorted = filtered.slice().reverse();
+      if (!filtered.length) {
+        logList.innerHTML =
+          "<div style='padding:6px;color:#777;'>No hay registros para el rango seleccionado.</div>";
+        return;
+      }
 
-          let html = "<ul style='list-style:none;padding-left:0;margin:0;'>";
-          for (const entry of sorted) {
-            const product = entry.product || "(sin nombre)";
-            const baseUsd =
-              entry.baseUsd != null && !isNaN(entry.baseUsd)
-                ? Number(entry.baseUsd).toFixed(2)
-                : "";
-            const beforeP =
-              entry.price_before != null && !isNaN(entry.price_before)
-                ? Number(entry.price_before).toLocaleString("es-PY")
-                : "";
-            const afterP =
-              entry.price_after != null && !isNaN(entry.price_after)
-                ? Number(entry.price_after).toLocaleString("es-PY")
-                : "";
-            const status = entry.status || "";
-            const timeTxt = entry.time || "";
+      const sorted = filtered.slice().reverse();
 
-            let line = "<strong>" + escapeHtml(product) + "</strong>";
+      let html = "<ul style='list-style:none;padding-left:0;margin:0;'>";
+      for (const entry of sorted) {
+        const product = entry.product || "(sin nombre)";
+        const baseUsd =
+          entry.baseUsd != null && !isNaN(entry.baseUsd)
+            ? Number(entry.baseUsd).toFixed(2)
+            : "";
+        const beforeP =
+          entry.price_before != null && !isNaN(entry.price_before)
+            ? Number(entry.price_before).toLocaleString("es-PY")
+            : "";
+        const afterP =
+          entry.price_after != null && !isNaN(entry.price_after)
+            ? Number(entry.price_after).toLocaleString("es-PY")
+            : "";
+        const status = entry.status || "";
+        const timeTxt = entry.time || "";
 
-            if (baseUsd) {
-              line += " — " + baseUsd + " USD";
-            }
-            if (afterP) {
-              line += " — precio: " + afterP + " Gs";
-            }
-            if (beforeP) {
-              line += " (antes: " + beforeP + " Gs)";
-            }
-            if (status) {
-              line +=
-                " — <span style='color:#555;'>" +
-                escapeHtml(status) +
-                "</span>";
-            }
-            if (timeTxt) {
-              line +=
-                "<br><span style='color:#999;font-size:11px;'>" +
-                escapeHtml(timeTxt) +
-                "</span>";
-            }
+        let line = "<strong>" + escapeHtml(product) + "</strong>";
 
-            html +=
-              "<li style='padding:4px 0;border-bottom:1px solid #eee;'>" +
-              line +
-              "</li>";
-          }
-          html += "</ul>";
-
-          logList.innerHTML = html;
-        } catch (err) {
-            showTextModal("Error", "Error cargando historial: " + err);
+        if (baseUsd) {
+          line += " — " + baseUsd + " USD";
         }
-      });
+        if (afterP) {
+          line += " — precio: " + afterP + " Gs";
+        }
+        if (beforeP) {
+          line += " (antes: " + beforeP + " Gs)";
+        }
+        if (status) {
+          line +=
+            " — <span style='color:#555;'>" +
+            escapeHtml(status) +
+            "</span>";
+        }
+        if (timeTxt) {
+          line +=
+            "<br><span style='color:#999;font-size:11px;'>" +
+            escapeHtml(timeTxt) +
+            "</span>";
+        }
+
+        html +=
+          "<li style='padding:4px 0;border-bottom:1px solid #eee;'>" +
+          line +
+          "</li>";
+      }
+      html += "</ul>";
+
+      logList.innerHTML = html;
+    } catch (err) {
+      alert("Error cargando historial:\n\n" + String(err?.message || err));
     }
+  });
+}
   </script>
 </body>
   </html>`;
@@ -1429,12 +1367,12 @@ function escapeHtml(str) {
 const respAdmin = new Response(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      // si querés cachear el HTML del panel:
-      "Cache-Control": "public, max-age=300",
+      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+      "Pragma": "no-cache",
     },
   });
 
-  ctx.waitUntil(cache.put(cacheKey, respAdmin.clone()));
+  //ctx.waitUntil(cache.put(cacheKey, respAdmin.clone()));
   return respAdmin;
 }
     // ---------- START protegido con PIN (modo update precios) ----------
@@ -2409,6 +2347,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
