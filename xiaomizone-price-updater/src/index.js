@@ -1161,6 +1161,68 @@ titleInputs.forEach((inp) => {
 });
 
 // Guardar Base USD (botón Guardar)
+// Guardar NOMBRE con Enter (columna Producto)
+const titleInputs = baseTableDiv.querySelectorAll(".title-input");
+titleInputs.forEach((inp) => {
+  inp.addEventListener("keyup", async (ev) => {
+    if (ev.key !== "Enter") return;
+    if (ev.shiftKey) return; // Shift+Enter: permitir salto de línea
+    ev.preventDefault();
+
+    // Quitar saltos al final (Windows/Mac/Linux)
+    inp.value = (inp.value || "").replace(new RegExp("[\\r\\n]+$", "g"), "");
+
+    const pin = getPinOrAlert();
+    if (!pin) return;
+
+    const productId = inp.getAttribute("data-product-id");
+    const title = (inp.value || "").trim();
+
+    if (!productId) { alert("Falta productId"); return; }
+    if (!title) { alert("El nombre no puede estar vacío"); return; }
+
+    inp.disabled = true;
+
+    try {
+      const params = new URLSearchParams();
+      params.set("pin", pin);
+      params.set("productId", productId);
+      params.set("title", title);
+
+      const r = await fetch("/product-set-title?" + params.toString());
+      const txt = await r.text();
+
+      let j;
+      try {
+        j = JSON.parse(txt);
+      } catch {
+        alert("Respuesta no válida del servidor:\\n\\n" + txt);
+        return;
+      }
+
+      if (!j.ok) {
+        alert("Error al cambiar nombre:\\n\\n" + (j.message || "Error desconocido"));
+        return;
+      }
+
+      alert("Nombre cambiado correctamente.");
+
+      const tr = inp.closest("tr");
+      if (tr) {
+        tr.classList.add("row-modified");
+        tr.setAttribute("data-modified", "1");
+        applyModifiedFilter();
+      }
+    } catch (err) {
+      alert("Error actualizando nombre:\\n\\n" + (err?.message || err));
+    } finally {
+      inp.disabled = false;
+      inp.blur();
+    }
+  });
+});
+
+// Guardar Base USD (botón Guardar)
 const buttons = baseTableDiv.querySelectorAll(".btn-save-row");
 buttons.forEach((btn) => {
   btn.addEventListener("click", async () => {
@@ -1231,7 +1293,6 @@ buttons.forEach((btn) => {
     }
   });
 });
-
 
 // ================= HELPERS =================
 function applyModifiedFilter() {
@@ -2323,6 +2384,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
