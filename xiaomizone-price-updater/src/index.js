@@ -792,9 +792,13 @@ if (formUpdate) {
         // txt no es JSON, usar tal cual
       }
 
-      alert("Respuesta del worker:\n\n" + msg);
+      alert("Respuesta del worker:\\n\\n" + msg);
+
     } catch (err) {
-      alert("Error llamando al worker:\n\n" + (err?.message || err));
+      alert(
+        "Error llamando al worker:\\n\\n" +
+        (err?.message || err)
+      );
     }
   });
 }
@@ -2345,6 +2349,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
