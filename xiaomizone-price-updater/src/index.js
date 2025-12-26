@@ -1107,7 +1107,7 @@ titleInputs.forEach((inp) => {
     ev.preventDefault();
 
     // En textarea, Enter normalmente agrega salto de línea:
-    // lo borramos para que no quede el \n al final
+    //// En textarea, Enter agrega una línea nueva; la eliminamos al final
   inp.value = (inp.value || "").replace(new RegExp("\\n+$", "g"), "");
 
     const pin = getPinOrAlert();
@@ -2339,6 +2339,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
