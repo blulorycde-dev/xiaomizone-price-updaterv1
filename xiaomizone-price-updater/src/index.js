@@ -848,25 +848,25 @@ if (formBase) {
     const url = "/set-base-usd?" + params.toString();
 
     try {
-      const r = await fetch(url);
-      const txt = await r.text();
+  const r = await fetch(url);
+  const txt = await r.text();
 
-      let msg = txt;
-      try {
-        const j = JSON.parse(txt);
-        msg = j.message || JSON.stringify(j, null, 2);
-      } catch (_) {
-        // respuesta no JSON → usar texto plano
-      }
+  let msg = txt;
+  try {
+    const j = JSON.parse(txt);
+    msg = j.message || JSON.stringify(j, null, 2);
+  } catch (_) {
+    // respuesta no JSON → usar texto plano
+  }
 
-      alert("Respuesta del worker:\n\n" + msg);
-    } catch (err) {
-      alert("Error llamando al worker:\n\n" + (err?.message || err));
-    }
-  });
+  alert("Respuesta del worker:\\n\\n" + msg);
+} catch (err) {
+  alert("Error llamando al worker:\\n\\n" + (err?.message || err));
+}
+});
 }
 
-   // --------- STATUS / CANCEL ----------
+// --------- STATUS / CANCEL ----------
 
 if (btnStatus) {
   btnStatus.addEventListener("click", async () => {
@@ -874,15 +874,14 @@ if (btnStatus) {
       const r = await fetch("/status");
       const txt = await r.text();
 
-      // si es JSON, lo formateamos lindo
       let out = txt;
       try {
         out = JSON.stringify(JSON.parse(txt), null, 2);
       } catch (_) {}
 
-      alert("Estado del job:\n\n" + out);
+      alert("Estado del job:\\n\\n" + out);
     } catch (err) {
-      alert("Error consultando status:\n\n" + (err?.message || err));
+      alert("Error consultando status:\\n\\n" + (err?.message || err));
     }
   });
 }
@@ -902,14 +901,14 @@ if (btnCancel) {
         msg = j.message || JSON.stringify(j, null, 2);
       } catch (_) {}
 
-      alert("Cancelar job:\n\n" + msg);
+      alert("Cancelar job:\\n\\n" + msg);
     } catch (err) {
-      alert("Error cancelando job:\n\n" + (err?.message || err));
+      alert("Error cancelando job:\\n\\n" + (err?.message || err));
     }
   });
 }
 
-   // --------- LISTA DE PRODUCTOS (paginada) ----------
+// --------- LISTA DE PRODUCTOS (paginada) ----------
 
 let baseCursor = null;
 let baseRows = [];
@@ -934,7 +933,7 @@ if (btnLoadBase) {
 if (btnMoreBase) {
   btnMoreBase.addEventListener("click", () => {
     if (!baseCursor) {
-      alert("Info:\n\nNo hay más productos para cargar.");
+      alert("Info:\\n\\nNo hay más productos para cargar.");
       return;
     }
     loadBase(false);
@@ -970,12 +969,12 @@ async function loadBase(reset) {
       j = JSON.parse(txt);
     } catch (_) {
       console.log("Respuesta no válida /base-list:", txt);
-      alert("Respuesta no válida de /base-list:\n\n" + String(txt || ""));
+      alert("Respuesta no válida de /base-list:\\n\\n" + String(txt || ""));
       return;
     }
 
     if (!j.ok) {
-      alert("Resultado:\n\n" + (j.message || "Error en /base-list"));
+      alert("Resultado:\\n\\n" + (j.message || "Error en /base-list"));
       return;
     }
 
@@ -989,8 +988,9 @@ async function loadBase(reset) {
     if (btnMoreBase) btnMoreBase.disabled = !baseCursor;
 
   } catch (err) {
-    alert("Error llamando a /base-list:\n\n" + (err?.message || err));
+    alert("Error llamando a /base-list:\\n\\n" + (err?.message || err));
   }
+  
 } // <- FIN loadBase(reset)
 
     function renderBaseTable(rows) {
@@ -2339,6 +2339,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
