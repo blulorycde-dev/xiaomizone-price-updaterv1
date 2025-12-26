@@ -726,7 +726,6 @@ function roundToClient(n, step) {
 function showApiResult(title, txt, okHumanMsg) {
   const t = String(txt || "");
 
-  // Detectar HTML (errores Cloudflare / páginas completas)
   const seemsHtml =
     t.includes("<!DOCTYPE html") ||
     t.includes("<html") ||
@@ -736,15 +735,14 @@ function showApiResult(title, txt, okHumanMsg) {
 
   if (seemsHtml) {
     alert(
-      (title || "Error") + "\n\n" +
-      "Error interno del Worker (Cloudflare 1101 / excepción).\n" +
-      "Abrí Workers Logs y buscá el Ray ID.\n\n" +
-      "Detalle técnico (HTML):\n\n" + t
+      (title || "Error") + "\\n\\n" +
+      "Error interno del Worker (Cloudflare 1101 / excepción).\\n" +
+      "Abrí Workers Logs y buscá el Ray ID.\\n\\n" +
+      "Detalle técnico (HTML):\\n\\n" + t
     );
     return null;
   }
 
-  // Intentar JSON
   try {
     const j = JSON.parse(t);
 
@@ -756,14 +754,14 @@ function showApiResult(title, txt, okHumanMsg) {
     }
 
     alert(
-      (title || "Resultado") + "\n\n" +
-      human + "\n\nDetalle:\n" + JSON.stringify(j, null, 2)
+      (title || "Resultado") + "\\n\\n" +
+      human + "\\n\\n" +
+      "Detalle:\\n" + JSON.stringify(j, null, 2)
     );
 
     return j;
   } catch (e) {
-    // Texto plano
-    alert((title || "Resultado") + "\n\n" + t);
+    alert((title || "Resultado") + "\\n\\n" + t);
     return null;
   }
 }
@@ -2347,6 +2345,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
