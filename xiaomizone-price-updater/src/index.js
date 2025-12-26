@@ -1970,13 +1970,21 @@ async function runBatch(env) {
           status = "seeded";
         }
 
-        await addLog(env, {
-          product: p.title || "No title",
-          variantId,
-          price_before: Math.round(pricePYG),
-          price_after: Math.round(newPyg),
-          status,
-        });
+      await addLog(env, {
+  product: p.title || "No title",
+  variantId,
+  price_before: Math.round(pricePYG),
+  price_after: Math.round(newPyg),
+  status,
+
+  // 🔎 datos de auditoría
+  baseUsd,
+  seeded_base: !!seeded,
+  rate_used: job.rate,
+  margin_used: job.margin,
+  round_used: job.roundTo,
+  rate_effective: job.rate * job.margin
+});
 
         variantsDone++;
         await sleep(REQ_THROTTLE_MS);
@@ -2402,6 +2410,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
