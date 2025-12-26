@@ -766,8 +766,7 @@ function showApiResult(title, txt, okHumanMsg) {
   }
 }
 
-   // --------- UPDATE ----------
-
+// --------- UPDATE ----------
 if (formUpdate) {
   formUpdate.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -788,24 +787,17 @@ if (formUpdate) {
       try {
         const j = JSON.parse(txt);
         msg = j.message || JSON.stringify(j, null, 2);
-      } catch (_) {
-        // txt no es JSON, usar tal cual
-      }
+      } catch (_) {}
 
       alert("Respuesta del worker:\\n\\n" + msg);
-
     } catch (err) {
-      alert(
-        "Error llamando al worker:\\n\\n" +
-        (err?.message || err)
-      );
+      alert("Error llamando al worker:\\n\\n" + (err?.message || err));
     }
   });
 }
 
 
-   // --------- RESET ----------
-
+  // --------- RESET ----------
 if (formReset) {
   formReset.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -829,13 +821,11 @@ if (formReset) {
       try {
         const j = JSON.parse(txt);
         msg = j.message || JSON.stringify(j, null, 2);
-      } catch (_) {
-        // no es JSON, usar texto plano
-      }
+      } catch (_) {}
 
-      alert("Respuesta del worker:\n\n" + msg);
+      alert("Respuesta del worker:\\n\\n" + msg);
     } catch (err) {
-      alert("Error llamando al worker:\n\n" + (err?.message || err));
+      alert("Error llamando al worker:\\n\\n" + (err?.message || err));
     }
   });
 }
@@ -2349,6 +2339,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
