@@ -1330,7 +1330,7 @@ if (btnLoadLog) {
     logList.innerHTML = html;
 } catch (err) {
   const msg = String(err?.message || err);
-  alert("Error cargando historial:\\n\\n" + msg);
+  alert("Error cargando historial:" + "\\n\\n" + msg);
 }
   });
 }
@@ -2321,6 +2321,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
