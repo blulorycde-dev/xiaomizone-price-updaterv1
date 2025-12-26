@@ -708,10 +708,12 @@ input[type="number"] {
       if (roundInput)  roundInput.value  = ROUND_STEP;
     }
 
-   function getPinOrAlert() {
+  function getPinOrAlert() {
   const pin = pinInput ? pinInput.value.trim() : "";
   if (!pin) {
-    alert("Falta PIN.\n\nIngresá el PIN de administrador.");
+    alert(`Falta PIN.
+
+Ingresá el PIN de administrador.`);
     return null;
   }
   return pin;
@@ -2347,6 +2349,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
