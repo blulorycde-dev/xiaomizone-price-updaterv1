@@ -1327,10 +1327,11 @@ if (btnLoadLog) {
       }
       html += "</ul>";
 
-      logList.innerHTML = html;
-    } catch (err) {
-      alert("Error cargando historial:\\n\\n" + String(err?.message || err));
-    }
+    logList.innerHTML = html;
+} catch (err) {
+  const msg = String(err?.message || err);
+  alert("Error cargando historial:\\n\\n" + msg);
+}
   });
 }
 </script>
@@ -2320,6 +2321,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
