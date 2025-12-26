@@ -176,11 +176,11 @@ if (path === "/product-set-title" && (req.method === "POST" || req.method === "G
 
 // ---------- PANEL ADMIN (HTML) ----------
 if (path === "/admin") {
- const cache = caches.default;
-const cacheKey = new Request(req.url, req);
-const cached = await cache.match(cacheKey);
-if (cached) return cached;
-  
+  const cache = caches.default;
+  const cacheKey = new Request(req.url, req);
+  const cached = await cache.match(cacheKey);
+  if (cached) return cached;
+
   const rateEnv = norm(env.MANUAL_RATE);
   const marginEnv = norm(env.MARGIN_FACTOR);
   const roundEnv = parseInt(env.ROUND_TO || "100", 10) || 100;
@@ -1426,11 +1426,11 @@ function escapeHtml(str) {
 </body>
   </html>`;
 
-  const respAdmin = new Response(html, {
+const respAdmin = new Response(html, {
     headers: {
       "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
-      "Pragma": "no-cache",
+      // si querés cachear el HTML del panel:
+      "Cache-Control": "public, max-age=300",
     },
   });
 
@@ -2409,6 +2409,7 @@ function roundTo(n, step) {
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
 
 
 
